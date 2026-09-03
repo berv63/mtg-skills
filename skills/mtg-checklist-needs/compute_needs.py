@@ -151,26 +151,32 @@ for path in glob.glob(OWNED_DECK_GLOB):
 # ---------------------------------------------------------------------------
 
 
-def target_needs(rarity):
-    """Rule #3 (R/MR only) beats Rule #2 (all cards) beats Rule #1 (all cards) beats the
-    DEFAULT_TARGET baseline — most-specific-selected-rule wins, not a max() of floors."""
-    if rarity in ("R", "MR") and "3" in RULES:
-        return 2
-    if "2" in RULES:
-        return 4
+def target_needs(rarity, treatment):
+    """Rule #3 (R/MR only) beats Rule #2 (all rarities) beats Rule #1 (all rows) beats the
+    DEFAULT_TARGET baseline — most-specific-selected-rule wins, not a max() of floors. Rules #2
+    and #3 only apply to treatment == "Base Set" rows: wanting 4 (or 2, for R/MR) copies of the
+    same card is a playset-completion goal that only makes sense for the base-set printing —
+    nobody wants multiple copies of the same alt-art/showcase/extended-art card. A non-base-set
+    row falls straight through to Rule #1 (if selected) or the DEFAULT_TARGET baseline instead,
+    exactly as if #2/#3 were never checked for that row."""
+    if treatment == "Base Set":
+        if rarity in ("R", "MR") and "3" in RULES:
+            return 2
+        if "2" in RULES:
+            return 4
     if "1" in RULES:
         return 1
     return DEFAULT_TARGET.get(rarity, 4)
 
 
-def keep_threshold(rarity):
+def keep_threshold(rarity, treatment):
     """How many copies of a row's own printing to always keep — Available = owned - this,
     floored at 0. Rule #4 sets an R/MR-specific keep-threshold independent of the Needs target;
     everything else defaults to keeping exactly your Needs target (nothing is "spare" until you've
     met your own goal)."""
     if rarity in ("R", "MR") and "4" in RULES:
         return 2
-    return target_needs(rarity)
+    return target_needs(rarity, treatment)
 
 
 rows_by_name = {}
@@ -187,7 +193,7 @@ zero_owned_names = set()
 for row in CARD_LIST:
     set_code, numbers, name, rarity = row["set_code"], row["numbers"], row["name"], row["rarity"]
     subset, treatment = row.get("subSet"), row.get("treatment", "Base Set")
-    target = target_needs(rarity)
+    target = target_needs(rarity, treatment)
     excluded = subset in EXCLUDED_SUBSETS
 
     row_owned = printing_owned(set_code, numbers)
@@ -218,7 +224,7 @@ for row in CARD_LIST:
         available = row_owned  # 100% available regardless of any keep-threshold
     else:
         needs_display = needs
-        available = max(0, row_owned - keep_threshold(rarity))
+        available = max(0, row_owned - keep_threshold(rarity, treatment))
 
     results.append({
         "set_code": set_code,

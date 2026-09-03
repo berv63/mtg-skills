@@ -87,14 +87,21 @@ Six independent yes/no rules the user picks per set (stored in `../../owned/<COD
 combination is legal. `compute_needs.py`'s `target_needs`/`keep_threshold` functions are the
 executable version of everything below — read this alongside them, not instead of them.
 
-- **#1 — "I want at least one of every card."** Sets the Needs target to 1 for every rarity,
-  *unless* a stronger rule below also applies.
-- **#2 — "I want to own at least 4 of each card."** Sets the Needs target to 4 for every rarity,
-  unless Rule #3 overrides it for R/MR.
+- **#1 — "I want at least one of every card."** Sets the Needs target to 1 for every row,
+  *unless* a stronger rule below also applies. Applies to every `treatment`, not just Base Set —
+  wanting at least one of a specific alt-art/showcase printing is a normal, common goal.
+- **#2 — "I want to own at least 4 of each card."** Sets the Needs target to 4, unless Rule #3
+  overrides it for R/MR. **Only applies to `treatment == "Base Set"` rows** — a target of 4 (or
+  2, for #3) is a playset-completion goal, and nobody wants 4 copies of the same
+  alt-art/showcase/extended-art printing. A non-base-set row is untouched by #2/#3 regardless of
+  rarity; it falls through to Rule #1's flat target of 1 (if selected) or the `DEFAULT_TARGET`
+  baseline, exactly as if #2/#3 were never checked for that row.
 - **#3 — "I want to own at least 2 of each R/MR card."** Sets the Needs target to 2, but only for
-  Rare/Mythic Rare rows. **This is a specific override, not a floor to be maxed with Rule #2** — if
-  both #2 and #3 are checked, R/MR gets 2 (Rule #3 wins), not 4. This was confirmed explicitly with
-  the user rather than assumed; don't "fix" it back to `max(2, 4)`.
+  Base-Set-treatment Rare/Mythic Rare rows (same base-set-only restriction as #2, above — an R/MR
+  alt-art row falls through to #1/`DEFAULT_TARGET` instead). **This is a specific override, not a
+  floor to be maxed with Rule #2** — if both #2 and #3 are checked, a base-set R/MR row gets 2
+  (Rule #3 wins), not 4. This was confirmed explicitly with the user rather than assumed; don't
+  "fix" it back to `max(2, 4)`.
 - **#4 — "I'm willing to trade down to 2 of each R/MR card."** Sets the *keep-threshold* (not the
   Needs target) to 2 for R/MR rows — `Available = max(0, owned − keep_threshold)`. This is
   independent of whatever the Needs target is; a card can show a Needs target of 4 (Rule #2) and
@@ -129,13 +136,20 @@ This matches the skill's original behavior before the rules feature existed.
 
 ### Recapping a rules selection to the user
 
-State back, in plain language, exactly what will happen for each rarity — not just which numbers
-were checked. E.g. for `rules: ["2","3","4","5"]`: "Commons/uncommons target 4 copies. Rares/mythics
-target 2 copies (Rule #3 overriding Rule #2's 4), but you're willing to trade down to 2 of those
-regardless (Rule #4 — redundant with #3 here since both land on 2, but would matter if you later
-drop #3). Base-set rows will credit owned alt-art copies toward completion once you own at least
-one real base-set copy (Rule #5)." Catching a misunderstanding here is much cheaper than after
-`compute_needs.py` has run.
+State back, in plain language, exactly what will happen for each rarity **and each treatment** —
+not just which numbers were checked; #2/#3's base-set-only scope is easy to state wrong as "every
+common/uncommon" when it actually only covers base-set-treatment rows. E.g. for
+`rules: ["1","2","3"]`: "Base-set commons/uncommons target 4 copies (Rule #2). Base-set
+rares/mythics target 2 copies (Rule #3 overriding Rule #2's 4). Every alt-art/showcase/extended-art
+row, regardless of rarity, targets just 1 copy (Rule #1 — #2/#3 don't apply to those printings)."
+
+Another example, for `rules: ["2","3","4","5"]`: "Base-set commons/uncommons target 4 copies.
+Base-set rares/mythics target 2 copies (Rule #3 overriding Rule #2's 4), but you're willing to
+trade down to 2 of those regardless (Rule #4 — redundant with #3 here since both land on 2, but
+would matter if you later drop #3). Alt-art rows fall back to the default target (1 for R/MR, 4
+for C/UC) since #2/#3 don't apply to them and #1 isn't selected. Base-set rows will credit owned
+alt-art copies toward completion once you own at least one real base-set copy (Rule #5)."
+Catching a misunderstanding here is much cheaper than after `compute_needs.py` has run.
 
 ## Building CARD_LIST from the shared sets/ cache
 
