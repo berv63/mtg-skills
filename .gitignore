@@ -1,15 +1,10 @@
-# Personal collection data — shared ownership cache (see owned/README.md).
-# Keep the README tracked; ignore everything else under owned/.
-owned/*/
-
-# Rendered checklist output — fully regenerable (see output/README.md).
-# Keep the README tracked; ignore every rendered file directly under output/.
-output/*
-!output/README.md
-
-# mtg-checklist-needs' per-run working copies (see projects/README.md).
-# Keep the README tracked; ignore everything else under projects/.
-projects/*/
+# mtg-checklist-needs no longer requires a fixed project-folder location (see README.md "The
+# mtg-checklist-needs working directory") — but if the user happens to run it while working
+# directly in this repo's root, don't let its per-run ownership data or rendered output get
+# committed by accident.
+/owned/
+/Owned/
+/code/
 
 # Python bytecode caches from running the stdlib scripts locally.
 __pycache__/

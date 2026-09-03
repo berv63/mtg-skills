@@ -1,23 +1,26 @@
 # -*- coding: utf-8 -*-
 """Computes a per-card Needs count (copies still wanted) and Available count (owned copies you'd
-trade away) for a set's checklist, against the shared ownership cache in ../../owned/<CODE>/.
+trade away) for a set's checklist, against the user's ownership data for that set.
 
-**This script must live in a project folder created directly under the repo root** (sister to
-sets/, owned/, output/, skills/) — e.g. projects/<name>/ — so that its relative paths resolve
-correctly. See SKILL.md's project-folder note / REFERENCE.md "The output/ folder" before assuming
-any other location works; there is no absolute path anywhere in this file on purpose, since it
-needs to run correctly on whatever machine the user is on.
+**This script runs from wherever the user is currently working — no fixed folder location or
+repo-root relationship required.** It looks for the ownership data directly inside the current
+working directory (see `_find_owned_dir` below): `owned/<CODE>/` or `Owned/<CODE>/` first, then a
+bare `<CODE>/` folder, whichever already exists; if none do, it defaults to `owned/<CODE>/` (create
+it and drop the collection export there). There is no absolute path anywhere in this file on
+purpose, since it needs to run correctly on whatever machine the user is on, and no dependency on
+this being a clone of any particular repo.
 
 To use for a new set:
 
-1. Create the project folder in the right place (see above), then get the user's collection
-   export(s) into ../../owned/<CODE>/ (create that folder if needed) per SKILL.md step 2 and
-   owned/README.md.
-2. Make sure ../../owned/<CODE>/rules.json exists (SKILL.md's rules step writes it) before running.
+1. Get the user's collection export(s) into an ownership folder inside the current working
+   directory — `owned/<CODE>/`, `Owned/<CODE>/`, or bare `<CODE>/` (create one if none exists yet)
+   — per SKILL.md step 2 and REFERENCE.md "The ownership folder"'s file-format notes.
+2. Make sure that folder's `rules.json` exists (SKILL.md's rules step writes it) before running.
 3. Replace CARD_LIST below with the real flat card list — one dict per checklist row, reusing the
    same section data built for mtg-checklist's template.py, plus each row's subSet and treatment
    (see SKILL.md step 1 / REFERENCE.md "Building CARD_LIST from the shared sets/ cache").
-4. Run this script; it writes needs_result.json for template_needs.py to consume.
+4. Set SET_CODE below to the real set code, then run this script; it writes needs_result.json for
+   template_needs.py to consume.
 
 See REFERENCE.md "The completion rules" and "Matching by printing vs. by name" before assuming
 this is safe for a set with genuine same-name-but-different-card base-set rows.
@@ -32,9 +35,22 @@ import re
 # Config — replace with the real set's data.
 # ---------------------------------------------------------------------------
 
-# Relative to this project folder (see the module docstring for the required folder location) —
-# two levels up reaches the repo root, matching every other skill's "../../sets/..." convention.
-OWNED_DIR = os.path.join("..", "..", "owned", "EX1")
+SET_CODE = "EX1"
+
+
+def _find_owned_dir(set_code):
+    """Looks for the user's ownership data directly inside the current working directory (this
+    project) rather than any shared, repo-relative cache: checks owned/<CODE>/ and Owned/<CODE>/
+    first, then a bare <CODE>/ folder at the top level, in that order — whichever already exists
+    wins. Falls back to owned/<CODE>/ (not yet created) if none of them exist, since that's where
+    SKILL.md step 2 tells the user to place their collection export."""
+    for candidate in (os.path.join("owned", set_code), os.path.join("Owned", set_code), set_code):
+        if os.path.isdir(candidate):
+            return candidate
+    return os.path.join("owned", set_code)
+
+
+OWNED_DIR = _find_owned_dir(SET_CODE)
 RULES_PATH = os.path.join(OWNED_DIR, "rules.json")
 
 OWNED_CSV_GLOB = os.path.join(OWNED_DIR, "collection_*.csv")

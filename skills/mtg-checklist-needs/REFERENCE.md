@@ -3,26 +3,24 @@
 ## Running without Python installed
 
 Both scripts only use the standard library (`csv`, `glob`, `json`, `os`, `re`, `html`) — no venv
-or pip install needed for the core workflow, and neither one has an absolute path anywhere in it —
-both `OWNED_DIR` (`compute_needs.py`) and `OUTPUT_PATH` (`template_needs.py`) are relative
-(`../../owned/<CODE>`, `../../output/<CODE>_needs_avail.html`), which only resolves correctly if
-the project folder lives directly under the repo root (see SKILL.md's project-folder note). If
-neither `python` nor `python3` resolves on the machine, run them in Docker instead — mount the
-**whole repo root**, not just the project folder, and set the working directory to the project
-folder's real path inside that mount, so the relative paths resolve identically to how they would
-on the host:
+or pip install needed for the core workflow, and neither one has an absolute path anywhere in it.
+Both `OWNED_DIR` (`compute_needs.py`) and `OUTPUT_PATH` (`template_needs.py`) are relative to the
+current working directory — `owned/<CODE>` (or `Owned/<CODE>`/bare `<CODE>`, see
+`_find_owned_dir`) and `code/<CODE>_needs_avail.html` respectively — with no repo-root dependency
+at all, so they resolve correctly regardless of where that directory happens to be. If neither
+`python` nor `python3` resolves on the machine, run them in Docker instead — just mount the current
+working directory itself:
 
 ```bash
-docker run --rm -v "$(pwd):/work" -w /work/projects/<name> python:3-slim python compute_needs.py
-docker run --rm -v "$(pwd):/work" -w /work/projects/<name> python:3-slim python template_needs.py
+docker run --rm -v "$(pwd):/work" -w /work python:3-slim python compute_needs.py
+docker run --rm -v "$(pwd):/work" -w /work python:3-slim python template_needs.py
 ```
 
-(run from the repo root, so `$(pwd)` is the repo root itself). On Windows PowerShell, use `${PWD}`
-instead of `$(pwd)`:
+On Windows PowerShell, use `${PWD}` instead of `$(pwd)`:
 
 ```powershell
-docker run --rm -v "${PWD}:/work" -w /work/projects/<name> python:3-slim python compute_needs.py
-docker run --rm -v "${PWD}:/work" -w /work/projects/<name> python:3-slim python template_needs.py
+docker run --rm -v "${PWD}:/work" -w /work python:3-slim python compute_needs.py
+docker run --rm -v "${PWD}:/work" -w /work python:3-slim python template_needs.py
 ```
 
 This pulls the official `python:3-slim` image on first run (needs internet access once), then
@@ -47,42 +45,118 @@ If the user ever wants a print-oriented version of this same Needs/Available dat
 different template (closer to `mtg-checklist`'s engine, ported to carry two numeric columns instead
 of checkboxes) — don't try to bolt print pagination back onto this file piecemeal.
 
-## The output/ folder
+## The project's code/ folder
 
-The rendered checklist is the one artifact this skill delivers to the user, so it goes in a shared,
-predictable place — `../../output/` relative to the project folder (sister to `sets/` and
-`owned/`, created on demand, no need to ask before creating the empty folder itself) — not the ad
-hoc "user's project folder" `mtg-checklist` still uses. The default filename is
-`<CODE>_needs_avail.html`. This only resolves correctly because the project folder lives directly
-under the repo root — see SKILL.md's project-folder note; if you ever find yourself needing an
-absolute path here, the project folder is in the wrong place, fix that instead.
+The rendered checklist is the one artifact this skill delivers to the user, and it's written
+*inside the current working directory itself* — a `code/` subfolder right alongside the copies of
+`compute_needs.py`/`template_needs.py` (created on demand, no need to ask before creating the
+empty folder itself) — never a shared repo-level location. This is a deliberate design choice, not
+an accident: an earlier version wrote to a shared `../../output/` folder sister to `sets/`/`owned/`,
+resolved relative to a `projects/<name>/` folder that was **required** to sit directly under the
+repo root. That broke down as soon as the assumption didn't hold — these skills installed globally
+via `npx skills add` land in `~/.agents/skills/`, completely detached from any real repo checkout,
+so a run from there put the rendered file somewhere under `~/.agents/output/`, nowhere near
+anything the user was actually working on. There is no `projects/` folder or repo-root requirement
+any more: wherever the user happens to be working *is* the project, full stop, and both the
+ownership lookup (`compute_needs.py`'s `OWNED_DIR`, see "Matching by printing vs. by name" below)
+and the rendered output stay self-contained inside that one directory. The default filename is
+`<CODE>_needs_avail.html`.
 
 **Resolving the exact path (SKILL.md step 5), before `template_needs.py` ever runs — all relative
-to the project folder:**
+to the current working directory:**
 
-1. `os.makedirs(os.path.join("..", "..", "output"), exist_ok=True)`.
-2. If `../../output/<CODE>_needs_avail.html` doesn't exist, that's the target — done.
+1. `os.makedirs("code", exist_ok=True)`.
+2. If `code/<CODE>_needs_avail.html` doesn't exist, that's the target — done.
 3. If it does exist, ask the user via AskUserQuestion: overwrite the existing file, or create a new
    one. Never decide this yourself and never overwrite silently — a previous run's file may still
    be open in the user's browser or shared with someone else.
 4. If they choose "new," find the first free `<CODE>_needs_avail_<N>.html` starting at `_1` (glob
-   `../../output/<CODE>_needs_avail_*.html`, parse the trailing integer, use `max + 1` — don't just
-   try `_1` and stop if a `_2` already exists without `_1`, i.e. don't assume no gaps).
+   `code/<CODE>_needs_avail_*.html`, parse the trailing integer, use `max + 1` — don't just try
+   `_1` and stop if a `_2` already exists without `_1`, i.e. don't assume no gaps).
 
 Set `template_needs.py`'s `OUTPUT_PATH` constant to that resolved relative path (same
-`os.path.join("..", "..", "output", "<resolved filename>")` shape as the placeholder already
-there) before running it — the script itself never prompts (nothing in this skill is interactive
-Python; the overwrite decision belongs at the SKILL.md/agent level, not baked into the engine). The
-script creates `output/` itself too (`os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)`)
-as a safety net, but step 5 should already have done this.
+`os.path.join("code", "<resolved filename>")` shape as the placeholder already there) before
+running it — the script itself never prompts (nothing in this skill is interactive Python; the
+overwrite decision belongs at the SKILL.md/agent level, not baked into the engine). The script
+creates `code/` itself too (`os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)`) as a safety
+net, but step 5 should already have done this.
 
-`needs_result.json`/`color_lookup.json` are intermediate artifacts and stay wherever
-`compute_needs.py`/`template_needs.py` are copied to (the project folder) — only the final rendered
-HTML moves to `output/`.
+`needs_result.json`/`color_lookup.json` are intermediate artifacts and stay directly in the project
+folder wherever `compute_needs.py`/`template_needs.py` are copied to; only the final rendered HTML
+goes one level deeper, into that same project folder's `code/` subfolder.
+
+## The ownership folder
+
+Personal, frequently-changing data — which cards the user actually owns — as opposed to `sets/`'s
+permanent, never-changing record of which cards exist. Lives inside the current working directory
+(see "The project's code/ folder" above for why): `owned/<CODE>/`, `Owned/<CODE>/`, or a bare
+`<CODE>/`, whichever `_find_owned_dir` finds first, defaulting to `owned/<CODE>/` if none exist yet.
+It's reused across every future `mtg-checklist-needs` run *from that same working directory* for
+that set — an ownership CSV dropped in once benefits every later run there, not just the one that
+created it — but starting from a different working directory starts fresh. Nothing here is
+regenerated automatically; a file placed here stays until the user removes or replaces it.
+
+```
+owned/                (or Owned/, or skip this level entirely)
+  HOB/
+    collection_2026-01-05.csv    (one or more ownership exports, see below)
+    welcome_deck.txt             (optional plain-text decklists)
+    rules.json                   (the confirmed completion-rules selection for this set)
+```
+
+If the user is tracking more than one set from the same working directory, each gets its own
+`<CODE>/` subfolder as shown above. This folder should be added to whatever ignore file the user's
+own working directory uses (if it's version-controlled at all) — personal collection data doesn't
+belong committed anywhere, and it changes far too often to track sensibly.
+
+### Ownership file formats
+
+`compute_needs.py` reads two kinds of source from the resolved ownership folder, both matched by
+glob so any number of files of each kind works:
+
+- **Collection export CSV** (`collection_*.csv`): at minimum a card-name column and a quantity
+  column (header matched case-insensitively against `Card Name`/`Name` and
+  `Quantity`/`Qty`/`Count`). If the file *also* has a collector-number column (matched against
+  `Collector Number`/`Card Number`/`Number`/`#`) — and either a set-code column
+  (`Set Code`/`Set`/`Edition Code`/`Edition`) or the project only involves one set code — every row
+  in that file is matched to the **exact printing** it names. If the file has no such
+  collector-number column at all, every row in that file is matched by **name only**, and treated
+  as if it were a base-set copy (see "Matching by printing vs. by name" below) — this is a
+  file-level decision made once per CSV, not a per-row fallback.
+- **Plain-text decklists** (`*.txt`): one card per line, `<qty> <name>` (e.g. `4 Lightning Bolt`),
+  for cards you only own as part of a preconstructed deck. These never carry a collector number, so
+  they always match by name only, same as a name-only CSV. A blank line or exactly `Deck` is
+  skipped; anything else unparseable is printed as `UNPARSED LINE` rather than silently dropped.
+
+Quantities from every matched file are summed before Needs/Available are computed. If the same
+physical collection is exported to more than one CSV (e.g. split by set, or a periodic re-export),
+just drop every file in the folder — the glob picks them all up. Old exports don't need to be
+deleted, only the newest one needs to be current, since quantities sum across files — **don't leave
+a stale export next to a newer one that represents the same cards**, or counts will double.
+
+### `rules.json` — the completion-rules selection
+
+The ownership folder's `rules.json` records which of this skill's completion rules the user picked,
+and (for Rule #6) which subSets they don't care about completing:
+
+```json
+{
+  "rules": ["1", "3", "5", "6"],
+  "excluded_subsets": ["Extended Art Cards", "Bundle Promo"]
+}
+```
+
+`compute_needs.py` reads this at run time (not hand-transcribed into the script's own constants,
+unlike `CARD_LIST`) so re-running the script after an ownership update never requires re-asking the
+user which rules apply. See "The completion rules" below for what each rule number means and how
+they combine. This file is created the first time `mtg-checklist-needs` is run for a set (after
+confirming the rules with the user via AskUserQuestion) and only changes when the user explicitly
+asks to change their rules for that set.
 
 ## The completion rules
 
-Six independent yes/no rules the user picks per set (stored in `../../owned/<CODE>/rules.json`'s
+Six independent yes/no rules the user picks per set (stored in the resolved ownership folder's
+`rules.json` — `owned/<CODE>/rules.json` by default, see "The project's code/ folder" above — in a
 `rules` array, by number as strings — `"1"` through `"6"`). None of them require each other; any
 combination is legal. `compute_needs.py`'s `target_needs`/`keep_threshold` functions are the
 executable version of everything below — read this alongside them, not instead of them.
@@ -185,8 +259,9 @@ real numbers as strings on both sides so the defense never has to fire.
 
 ## Matching by printing vs. by name
 
-Two separate ownership pools are built from `../../owned/<CODE>/`'s files, and which pool a
-`CARD_LIST` row draws from depends on both the row's `treatment` and whether Rule #5 is on:
+Two separate ownership pools are built from the resolved ownership folder's files (`OWNED_DIR` —
+`owned/<CODE>/` by default, see "The project's code/ folder" above), and which pool a `CARD_LIST`
+row draws from depends on both the row's `treatment` and whether Rule #5 is on:
 
 - **`owned_by_printing`**, keyed by `(set_code, number)` — built from any CSV row where a
   collector-number column (and either a set-code column or a single-set-code project) was
@@ -226,8 +301,8 @@ for that specific copy. Compare the two strings/columns directly rather than gue
 
 ## Verifying the result
 
-No PDF/pypdf step — this is a plain HTML page, so open the file written to `../../output/` directly
-in a browser
+No PDF/pypdf step — this is a plain HTML page, so open the file written to the project's `code/`
+directly in a browser
 (or `grep`/`Grep` the raw HTML for `f"{name}"` if a quick headless check is enough) to confirm a
 specific card landed where expected and its Needs/Available values read correctly. Cross-check
 `needs_result.json` directly for a couple of cards the user knows the real owned-copy count for —

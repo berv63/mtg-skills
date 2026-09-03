@@ -2,9 +2,9 @@
 
 A small collection of [Agent Skills](https://agentskills.io) for building Magic: The Gathering
 collection checklists — a printable one (`mtg-checklist`) and a web-only Needs/Available one
-(`mtg-checklist-needs`) — plus permanent, hand-verified caches of Scryfall set data and personal
-ownership data they read from. Written for an AI coding agent to follow — this file is the map;
-each skill's own `SKILL.md` is the authority on how to actually do its part.
+(`mtg-checklist-needs`) — plus a permanent, hand-verified cache of Scryfall set data they both read
+from. Written for an AI coding agent to follow — this file is the map; each skill's own `SKILL.md`
+is the authority on how to actually do its part.
 
 ## Install
 
@@ -16,13 +16,19 @@ npx skills add berv63/mtg-skills --skill mtg-checklist --agent claude-code
 This is a public repo, so no extra auth is needed either for `npx skills add` or for the
 GitHub-hosted `sets/` lookups described below.
 
-`npx skills add` only pulls down the `skills/` folder — **not** `sets/`, `owned/`, `output/`, or
-`projects/`. That's fine for `owned/`/`output/`/`projects/` (personal, per-machine data anyway),
-but it means a fresh install starts with an empty local `sets/` cache even though this GitHub
-repo may already have several sets built and committed. `mtg-set-builder`'s own `build_set.py`
-covers this automatically per-set (see below), and `mtg-sets-sync` bulk-seeds several at once —
-run it once right after install if you'd rather not pay even that first per-set GitHub round trip
-during a checklist run.
+`npx skills add` only pulls down the `skills/` folder — **not** `sets/`. That means a fresh install
+starts with an empty local `sets/` cache even though this GitHub repo may already have several sets
+built and committed. `mtg-set-builder`'s own `build_set.py` covers this automatically per-set (see
+below), and `mtg-sets-sync` bulk-seeds several at once — run it once right after install if you'd
+rather not pay even that first per-set GitHub round trip during a checklist run.
+
+`npx skills add` also installs skills to a location detached from any clone of this repo (e.g.
+`~/.agents/skills/` globally) — so `mtg-set-builder`'s own `sets/` reference only resolves
+correctly when it's actually run from inside a real checkout of this repo (see "Repo conventions"
+below for how it anchors to its own file location instead of the caller's working directory).
+`mtg-checklist-needs` has no such dependency at all — both its ownership data and its rendered
+output live in whatever directory the user is currently working in, wherever that is; see "The
+`mtg-checklist-needs` working directory" below.
 
 ## The four skills, and how they fit together
 
@@ -32,9 +38,6 @@ skills/mtg-sets-sync/        bulk-downloads already-built sets/ caches from GitH
 skills/mtg-checklist/        renders the finish-checkbox (NF/TF/SF) checklist HTML
 skills/mtg-checklist-needs/  renders the Needs/Available checklist HTML (vs. a collection export)
 sets/                        the shared cache both checklist skills read from (what cards exist)
-owned/                       the shared cache mtg-checklist-needs reads from (what you own)
-output/                      where mtg-checklist-needs writes its rendered HTML
-projects/                    where mtg-checklist-needs' own working copies of its scripts live
 ```
 
 **Always run `mtg-set-builder` first.** Whichever checklist skill the user asked for, its own
@@ -68,26 +71,32 @@ or refresh a set. Don't read this cache's raw JSON schema assumptions from memor
 across sessions (nested `subSet`/`cards` structure, no per-card `setCode`, `name` preferring
 Scryfall's `flavor_name`); check `sets/README.md` if anything about a field's meaning is unclear.
 
-## The `owned/` cache
+## The `mtg-checklist-needs` working directory
 
-The opposite kind of data from `sets/`: one folder per set code (`owned/HOB/`, ...) holding the
-user's own collection export CSV(s), optional decklists, and a `rules.json` recording which of
-`mtg-checklist-needs`' six completion rules apply to that set — see `owned/README.md` and
-`skills/mtg-checklist-needs/REFERENCE.md` "The completion rules". Unlike `sets/`, this is personal,
-frequently-changing data — it's git-ignored (see `.gitignore`) and only `mtg-checklist-needs`
-reads it.
+Unlike `sets/` (a permanent, shared, version-controlled cache) and unlike `mtg-checklist` (whose
+rendered output goes to an arbitrary user-chosen "project folder" with no other runtime
+dependency), `mtg-checklist-needs` is fully self-contained inside whatever directory the user is
+currently working in when they run it — **there is no `owned/` or `projects/` folder in this repo
+any more, and no repo-root-relative path anywhere in either of its scripts.** Copy
+`compute_needs.py`/`template_needs.py` straight into the current working directory:
 
-## `mtg-checklist-needs`' project folders must live under `projects/`
+- **Ownership data** (the user's collection export CSV(s), optional decklists, and a `rules.json`
+  recording which of the six completion rules apply) lives in an `owned/<CODE>/`, `Owned/<CODE>/`,
+  or bare `<CODE>/` subfolder of that same working directory — whichever already exists, per
+  `compute_needs.py`'s `_find_owned_dir` — see `skills/mtg-checklist-needs/REFERENCE.md` "The
+  ownership folder" and "The completion rules" for the full schema.
+- **Rendered output** goes to a `code/` subfolder of that same working directory
+  (`code/<CODE>_needs_avail.html`) — see REFERENCE.md "The project's code/ folder".
 
-Unlike `mtg-checklist` (whose rendered output goes to an arbitrary user-chosen "project folder"),
-`mtg-checklist-needs`' copies of `compute_needs.py`/`template_needs.py` use **relative** paths at
-runtime to reach `owned/` and `output/` (`../../owned/<CODE>`, `../../output/...`) — there's no
-absolute, machine-specific path anywhere in either script, since they need to run correctly on
-whatever machine the user is on. That only resolves correctly if the project folder is created
-directly under the repo root, e.g. `projects/<descriptive-name>/` — sister to `sets/`, `owned/`,
-`output/`, `skills/` — so `../../` from inside it always lands on the repo root, exactly like every
-other skill's `../../sets/...` references. This folder is git-ignored too (working copies of the
-per-project scripts + intermediate JSON, not something to version-control).
+This was a deliberate design choice after an earlier version required a `projects/<name>/` folder
+created directly under this repo's root (so `../../owned`/`../../output` would resolve) — that
+broke down as soon as the skill was installed globally via `npx skills add` (landing in
+`~/.agents/skills/`, detached from any real checkout of this repo) and run from some unrelated
+working directory, since the relative paths then resolved to nonsense locations under `~/.agents/`.
+Keeping every path relative to the current working directory instead means the skill works
+correctly no matter where it's installed or run from — the tradeoff is that ownership data is now
+reused only within a given working directory, not automatically shared repo-wide across every
+project for the same set the way it used to be.
 
 ## Repo conventions worth knowing before editing anything here
 
@@ -101,7 +110,10 @@ per-project scripts + intermediate JSON, not something to version-control).
   (JSON caches + its own README) — no scripts.
 - `build_set.py` resolves the repo's `sets/` folder relative to its own file location, not the
   caller's working directory, so it can be run from anywhere in the repo (or via Docker mounting
-  the whole repo root) and still write to the right place.
+  the whole repo root) and still write to the right place. `compute_needs.py`/`template_needs.py`
+  work the opposite way on purpose (see "The `mtg-checklist-needs` working directory" above): their
+  paths are relative to the *current working directory*, since they get copied out to wherever the
+  user is working, not run in place.
 - This repo is a real git repo with a real remote (`origin` → this GitHub repo). Committing or
   pushing anything — including a new/refreshed `sets/<CODE>.json` — only happens when the user
   asks, per each skill's own explicit git-safety guidance; nothing here should ever auto-commit.

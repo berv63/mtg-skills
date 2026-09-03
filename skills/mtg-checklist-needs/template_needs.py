@@ -5,10 +5,12 @@ count, with every card in that subSet rendered together in that one section (no 
 splitting a section across a "page"). Each row gets a Needs column (copies still wanted) and an
 Available column (owned copies you'd trade away) instead of finish checkboxes.
 
-**This script must live in a project folder created directly under the repo root** (sister to
-sets/, owned/, output/, skills/) — e.g. projects/<name>/ — so its relative OUTPUT_PATH resolves
-correctly. There is no absolute path anywhere in this file on purpose, since it needs to run
-correctly on whatever machine the user is on.
+**This script runs from wherever the user is currently working — no fixed folder location or
+repo-root relationship required**, matching `compute_needs.py`'s ownership-lookup change (see its
+own docstring). `OUTPUT_PATH` points at a `code/` subfolder of the current working directory
+(`code/<file>.html`), so the rendered HTML lands right next to the scripts that built it rather
+than in some shared location elsewhere. There is no absolute path anywhere in this file on
+purpose, since it needs to run correctly on whatever machine the user is on.
 
 To use for a new set:
 
@@ -18,8 +20,8 @@ To use for a new set:
    checkboxes just aren't rendered).
 2. Run compute_needs.py first so needs_result.json exists.
 3. Set OUTPUT_PATH's filename to the exact name this run should write (see SKILL.md step 5 /
-   REFERENCE.md "The output/ folder" for how that name — including any overwrite-or-new decision —
-   gets resolved before this script runs).
+   REFERENCE.md "The project's code/ folder" for how that name — including any overwrite-or-new
+   decision — gets resolved before this script runs).
 4. Run this script and open the written file in a browser. There is no pagination to calibrate —
    this template targets a scrolling web page, not a printed page.
 """
@@ -29,11 +31,11 @@ import os
 
 TITLE = "Example Set — MTG Finish-Level Checklist"
 
-# Relative to this project folder (see the module docstring for the required folder location) —
-# two levels up reaches the repo root, matching every other skill's "../../sets/..." convention.
-# The filename may already carry an overwrite-confirmed _1/_2/... suffix — this script never
-# decides that itself, it only writes whatever path SKILL.md step 5 resolved.
-OUTPUT_PATH = os.path.join("..", "..", "output", "EX1_needs_avail.html")
+# Relative to this project folder itself — a "code/" subfolder right alongside this script, NOT
+# the repo-root-relative "../../..." pattern OWNED_DIR (compute_needs.py) uses. The filename may
+# already carry an overwrite-confirmed _1/_2/... suffix — this script never decides that itself,
+# it only writes whatever path SKILL.md step 5 resolved.
+OUTPUT_PATH = os.path.join("code", "EX1_needs_avail.html")
 
 with open("color_lookup.json", encoding="utf-8") as _f:
     COLOR_LOOKUP = json.load(_f)
