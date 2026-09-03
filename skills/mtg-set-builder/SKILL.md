@@ -1,6 +1,6 @@
 ---
 name: mtg-set-builder
-description: Resolve a single target Magic: The Gathering set — from the shared sets/ cache, or freshly built from Scryfall if it isn't cached yet — and let the user pick which subSet groups to include. This is the shared intake step mtg-checklist and mtg-checklist-needs both run before building anything; it can also be invoked on its own just to add or refresh a cached set.
+description: "Resolve a single target Magic: The Gathering set — from the shared sets/ cache, or freshly built from Scryfall if it isn't cached yet — and let the user pick which subSet groups to include. This is the shared intake step mtg-checklist and mtg-checklist-needs both run before building anything; it can also be invoked on its own just to add or refresh a cached set."
 ---
 
 Produces two things for whichever skill invoked it (or for its own sake): exactly one confirmed

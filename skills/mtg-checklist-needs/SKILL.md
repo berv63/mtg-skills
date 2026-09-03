@@ -1,6 +1,6 @@
 ---
 name: mtg-checklist-needs
-description: Build or update the "Needs" variant of a Magic: The Gathering set checklist — same layout as mtg-checklist but with a single numeric "copies still needed" column per card instead of finish checkboxes, computed from a collection export. Use when the user wants to know what they still need to complete a set/playset, or wants to regenerate a needs list built with this skill.
+description: "Build or update the \"Needs\" variant of a Magic: The Gathering set checklist — same layout as mtg-checklist but with a single numeric \"copies still needed\" column per card instead of finish checkboxes, computed from a collection export. Use when the user wants to know what they still need to complete a set/playset, or wants to regenerate a needs list built with this skill."
 ---
 
 Builds the same compact, print-ready checklist layout as `mtg-checklist` — for **one set at a

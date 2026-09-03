@@ -1,6 +1,6 @@
 ---
 name: mtg-checklist
-description: Build or update a printable Magic: The Gathering collection checklist for a set — checkboxes per finish (non-foil/foil/surge foil), rarity, print-optimized multi-column layout. Use when the user wants a checklist for an MTG set, wants to regenerate/update an existing one built with this skill, or wants to track owned cards across finishes for a set.
+description: "Build or update a printable Magic: The Gathering collection checklist for a set — checkboxes per finish (non-foil/foil/surge foil), rarity, print-optimized multi-column layout. Use when the user wants a checklist for an MTG set, wants to regenerate/update an existing one built with this skill, or wants to track owned cards across finishes for a set."
 ---
 
 Builds a compact, print-ready HTML checklist for **one set at a time**: one row per card number,
