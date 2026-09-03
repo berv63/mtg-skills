@@ -10,3 +10,6 @@ output/*
 # mtg-checklist-needs' per-run working copies (see projects/README.md).
 # Keep the README tracked; ignore everything else under projects/.
 projects/*/
+
+# Python bytecode caches from running the stdlib scripts locally.
+__pycache__/

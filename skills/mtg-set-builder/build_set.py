@@ -9,6 +9,14 @@ Lives here (skills/mtg-set-builder/), not in sets/ itself, since sets/ is pure d
 the tool that builds it. Output always goes to ../../sets/ (resolved from this file's own
 location), so it can be run from anywhere, not just from inside sets/.
 
+Before touching Scryfall at all, this also checks the repo's own GitHub sets/ folder
+(https://github.com/berv63/mtg-skills/tree/master/sets) for an already-built copy of the
+requested code — installing this skill via `npx skills add` only pulls skills/, not sets/, so a
+set someone else already built and committed upstream would otherwise trigger a needless live
+Scryfall fetch. See try_fetch_from_github below; --force skips this and goes straight to
+Scryfall (for a deliberate rebuild after a MANUAL_SUBSET_OVERRIDES fix, where the GitHub copy is
+presumably the stale thing being corrected).
+
 Usage:
     python build_set.py HOB HOC THOB      # any number of set codes in one run
     python build_set.py LTR --force       # re-fetch and overwrite even if already cached
@@ -17,10 +25,12 @@ import json
 import re
 import sys
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
 SETS_DIR = Path(__file__).resolve().parent.parent.parent / "sets"
+GITHUB_RAW_SETS_URL = "https://raw.githubusercontent.com/berv63/mtg-skills/master/sets"
 
 RARITY_MAP = {"common": "C", "uncommon": "UC", "rare": "R", "mythic": "MR",
               "special": "S", "bonus": "B"}
@@ -204,10 +214,42 @@ def group_by_subset(set_code, cards, section_map):
     return [{"subSet": sub_set, "cards": groups[sub_set]} for sub_set in order]
 
 
+def try_fetch_from_github(set_code):
+    """Attempts to download an already-built <CODE>.json straight from this repo's own GitHub
+    sets/ folder, before doing any live Scryfall work. Returns True (and writes the file) on
+    success, False on a 404 (not built/committed upstream yet) or any other fetch problem — the
+    caller falls back to the normal Scryfall fetch in that case. Since a copy found here was
+    already hand-verified (per README.md "Verifying a build") when whoever built it committed
+    it, the caller can skip local re-verification too."""
+    url = f"{GITHUB_RAW_SETS_URL}/{set_code.upper()}.json"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urllib.request.urlopen(req) as r:
+            raw = r.read()
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return False
+        print(f"  warning: GitHub check for {set_code} failed ({e}); falling back to Scryfall")
+        return False
+    except urllib.error.URLError as e:
+        print(f"  warning: GitHub check for {set_code} failed ({e}); falling back to Scryfall")
+        return False
+
+    groups = json.loads(raw)  # let a malformed download raise rather than write bad data
+    out_path = SETS_DIR / f"{set_code.upper()}.json"
+    out_path.write_bytes(raw)
+    total = sum(len(g["cards"]) for g in groups)
+    print(f"downloaded {out_path} from GitHub (already verified upstream — no local "
+          f"re-verification needed): {len(groups)} subSets, {total} cards")
+    return True
+
+
 def build_set(set_code, force=False):
     out_path = SETS_DIR / f"{set_code.upper()}.json"
     if out_path.exists() and not force:
         print(f"{out_path} already exists, skipping (sets never change — pass --force to re-fetch)")
+        return
+    if not force and try_fetch_from_github(set_code):
         return
     cards = fetch_all_prints(set_code)
     try:

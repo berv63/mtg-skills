@@ -218,6 +218,19 @@ only ever a deliberate correction). Only pass `--force` if you have a specific r
 the cached data is wrong (a Scryfall data-entry fix, a bugged promo_types tag, etc.) — this is a
 network call to a third party, not a routine step.
 
+**Before hitting Scryfall at all, `build_set.py` first checks this repo's own GitHub `sets/`
+folder** (`https://github.com/berv63/mtg-skills/tree/master/sets`) for an already-built copy of
+the requested code, and downloads that instead if found — installing this repo's skills via
+`npx skills add` only pulls down `skills/`, not `sets/`, so a fresh install otherwise has an
+empty local cache even for sets someone else already built and committed upstream. `--force`
+skips this check and goes straight to Scryfall (the point of `--force` is correcting a *stale*
+build, and the GitHub copy is presumably the stale thing being corrected). A copy pulled this way
+needs no local re-verification — it was already hand-verified when it was built and committed —
+see `mtg-set-builder`'s SKILL.md step 3. `mtg-sets-sync` (a sibling skill,
+`skills/mtg-sets-sync/`) does the same GitHub download for several set codes at once, useful for
+seeding the whole local cache right after a fresh install rather than hitting this shortcut one
+code at a time as each checklist run happens to need it.
+
 `build_set.py` talks to Scryfall directly via `urllib` (stdlib) — no `requests`, `curl`, or HTML
 parser dependency (the section scrape uses two small regexes, not a full HTML parser — see "The
 `subSet` grouping" above). Two requests per set code: the JSON API (`api.scryfall.com/cards/search`,

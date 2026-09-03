@@ -13,14 +13,22 @@ npx skills add berv63/mtg-skills --skill '*'         # every skill, to whatever 
 npx skills add berv63/mtg-skills --skill mtg-checklist --agent claude-code
 ```
 
-This is a **private** repo — `npx skills add` works the same as for a public one, using whatever
-Git credentials/GitHub CLI auth is already configured locally (see the `skills` CLI's own docs,
-"Private Repositories"). No extra flags needed if `gh auth status` already succeeds.
+This is a public repo, so no extra auth is needed either for `npx skills add` or for the
+GitHub-hosted `sets/` lookups described below.
 
-## The three skills, and how they fit together
+`npx skills add` only pulls down the `skills/` folder — **not** `sets/`, `owned/`, `output/`, or
+`projects/`. That's fine for `owned/`/`output/`/`projects/` (personal, per-machine data anyway),
+but it means a fresh install starts with an empty local `sets/` cache even though this GitHub
+repo may already have several sets built and committed. `mtg-set-builder`'s own `build_set.py`
+covers this automatically per-set (see below), and `mtg-sets-sync` bulk-seeds several at once —
+run it once right after install if you'd rather not pay even that first per-set GitHub round trip
+during a checklist run.
+
+## The four skills, and how they fit together
 
 ```
 skills/mtg-set-builder/      resolves ONE target set + which subSet groups to include
+skills/mtg-sets-sync/        bulk-downloads already-built sets/ caches from GitHub (optional, post-install)
 skills/mtg-checklist/        renders the finish-checkbox (NF/TF/SF) checklist HTML
 skills/mtg-checklist-needs/  renders the Needs/Available checklist HTML (vs. a collection export)
 sets/                        the shared cache both checklist skills read from (what cards exist)

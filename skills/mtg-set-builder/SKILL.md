@@ -18,20 +18,29 @@ step 2, don't duplicate it here.
    `THOB` alongside `HOB`) is a separate code/file; if their request could mean either, ask which
    one specifically rather than guessing.
 
-2. **Build the set if `../../sets/<CODE>.json` doesn't exist yet.** Tell the user this means a live
-   Scryfall fetch (two requests: the card API, and a scrape of the set's Scryfall web page — see
-   `../../sets/README.md`) before running `build_set.py <CODE>` (same folder as this file; it
-   resolves `../../sets/` itself regardless of your working directory — Docker fallback per
-   `../../sets/README.md`'s "Running without Python installed" if Python isn't available locally).
-   Skip this step entirely for a code that's already cached.
+2. **Build the set if `../../sets/<CODE>.json` doesn't exist yet.** Run `build_set.py <CODE>`
+   (same folder as this file; it resolves `../../sets/` itself regardless of your working
+   directory — Docker fallback per `../../sets/README.md`'s "Running without Python installed"
+   if Python isn't available locally). Before touching Scryfall, `build_set.py` first checks this
+   repo's own GitHub `sets/` folder for an already-built copy of that code (installing via
+   `npx skills add` only pulls `skills/`, not `sets/`, so a set someone else already built and
+   committed upstream would otherwise trigger a needless live fetch — `mtg-sets-sync` is the
+   skill for bulk-seeding several sets this way at once, if the user wants that instead). Read
+   its printed output to see which path it took: a line starting `downloaded ... from GitHub`
+   means step 3 can be skipped (see there); a line starting `wrote ...` means it fell back to a
+   live Scryfall fetch (two requests: the card API, and a scrape of the set's Scryfall web page —
+   see `../../sets/README.md`) and step 3 applies. Skip this step entirely for a code that's
+   already cached locally.
 
 3. **Verify a new build with the user before trusting it.** Follow `../../sets/README.md`
    "Verifying a build" exactly: present every `subSet` group (name, first card, last card, count),
    batched a few per question round, and ask for confirmation. When the user corrects a group
    (a split, a wrong boundary, a bad name), add a `MANUAL_SUBSET_OVERRIDES` entry in
    `build_set.py` and rebuild with `--force` — never hand-edit the JSON. Repeat until every group
-   is confirmed. Skip entirely for a set that was already cached (and thus already verified in an
-   earlier run) — this is a one-time cost per set, not a per-use one.
+   is confirmed. Skip entirely for a set that was already cached locally, or that step 2 just
+   downloaded from GitHub (`build_set.py` printed `downloaded ... from GitHub`) — both mean it
+   was already verified in an earlier run, not this one. Only a set step 2 actually fetched live
+   from Scryfall (`build_set.py` printed `wrote ...`) needs this step.
 
 4. **Offer to commit a set you just built or corrected.** If step 2 or 3 changed anything under
    `../../sets/`, ask whether the user wants it committed. If yes: create a branch (e.g.
