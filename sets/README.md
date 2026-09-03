@@ -257,6 +257,10 @@ fix `build_set.py` or `OTHER_FOIL_PROMO_TYPES`/the section-parsing regex as need
 with `--force` before re-verifying — don't hand-patch the JSON output directly, or the next
 `--force` rebuild will silently overwrite the fix.
 
+Once every group is confirmed, this repo (`mtg-skills`) is a git repo — offer to commit the new
+or corrected `sets/` files on a branch (see `mtg-set-builder`'s SKILL.md step 4 for exactly how);
+never commit without being asked.
+
 ### Running without Python installed
 
 Same Docker fallback as both skills:

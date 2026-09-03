@@ -102,6 +102,30 @@ scraped grouping nor `treatment`+`artist` separates on its own. After building/r
 cache, run through its README.md "Verifying a build" step with the user before treating it as
 trustworthy.
 
+## Deriving mode from cached finish flags
+
+For a card row sourced from `../sets/<CODE>.json` (the normal path now that `mtg-set-builder`
+resolves the set first), map its finish flags directly instead of re-classifying by hand:
+
+- `nonFoilAvailable and foilAvailable and not surgeFoilAvailable and not otherFoilAvailable` →
+  `NF_TF`.
+- `nonFoilAvailable and not foilAvailable` → `NF_ONLY`.
+- `not nonFoilAvailable and (foilAvailable or surgeFoilAvailable or otherFoilAvailable)` →
+  `TF_ONLY` (unless it's paired into an `NF_SF` row — see below).
+
+**A true two-checkbox `NF_SF` row only exists when the user selected *both* sides of the pair.**
+This cache represents a plain-numbered print and its separately-numbered surge/other-foil twin as
+two distinct rows — often in two distinct `subSet` groups entirely (e.g. HOB's `Dragon Hoard
+Frame Cards` holds the plain-numbered prints, `Dragon Hoard Surge Foils` holds their
+separately-numbered surge-foil twins for the *same* 25 designs). Build an `NF_SF` row only by
+matching `name` across the *selected* subsets' cards (same approach as `mtg-checklist-needs`'
+ownership matching — see that skill's REFERENCE.md "Matching by name, not number"), and only when
+both the plain-numbered and separately-numbered prints of that name were actually selected in step
+0. If the user selected only one side of such a pair, render that side alone with its own
+single-finish mode from the rules above — don't synthesize a checkbox for a subset/finish they
+didn't ask for. Verify a couple of known pairs by hand (name + both numbers) before trusting a
+bulk pairing pass across a whole set.
+
 ## Fetching color data
 
 Only needed as a fallback if the set isn't in `sets/` and you have a specific reason not to cache

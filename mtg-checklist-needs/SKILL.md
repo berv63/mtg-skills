@@ -3,23 +3,26 @@ name: mtg-checklist-needs
 description: Build or update the "Needs" variant of a Magic: The Gathering set checklist — same layout as mtg-checklist but with a single numeric "copies still needed" column per card instead of finish checkboxes, computed from a collection export. Use when the user wants to know what they still need to complete a set/playset, or wants to regenerate a needs list built with this skill.
 ---
 
-Builds the same compact, print-ready checklist layout as `mtg-checklist` — one row per card
-number, rarity abbreviated, 2-3 columns per page — but replaces the two finish checkboxes with
-one numeric **Needs** column: copies still required for a playset (4 for Common/Uncommon, 1 for
-Rare/Mythic by default), computed by matching your collection export against the card list **by
-name**, so an owned alternate-art/showcase/extended-art printing still counts toward the same
-card's total. `compute_needs.py` computes the counts; `template_needs.py` renders the HTML —
-both are the working engines (copy them per project rather than rewriting). `REFERENCE.md` holds
-the ownership file formats and the sanity checks; read it before step 1.
+Builds the same compact, print-ready checklist layout as `mtg-checklist` — for **one set at a
+time**, one row per card number, rarity abbreviated, 2-3 columns per page — but replaces the two
+finish checkboxes with one numeric **Needs** column: copies still required for a playset (4 for
+Common/Uncommon, 1 for Rare/Mythic by default), computed by matching your collection export
+against the card list **by name**, so an owned alternate-art/showcase/extended-art printing still
+counts toward the same card's total. `compute_needs.py` computes the counts; `template_needs.py`
+renders the HTML — both are the working engines (copy them per project rather than rewriting).
+`REFERENCE.md` holds the ownership file formats and the sanity checks; read it before step 1.
 
-This skill assumes the set's section/color data already exists (or is being built alongside) via
-the `mtg-checklist` skill — it reuses that data rather than re-deriving it. If this is a set you
-haven't built a checklist for yet, run `mtg-checklist` first (at least through its step 2).
+0. **Resolve the target set and subset selection first.** Follow the `mtg-set-builder` skill's
+   full procedure before doing anything below — it resolves exactly one set code (building and
+   verifying it in `../sets/` if it isn't cached yet), lets the user pick which `subSet` groups
+   to include, and gets an explicit go-ahead on a recap of both. Don't start step 1 until that
+   recap is confirmed.
 
-1. **Get the flat card list.** Flatten every section built for this set's `mtg-checklist` run
-   into one ordered list of `(set_code, number, name, rarity)` rows — one row per checklist row,
-   including reprints/alternate-art printings under their own number. Done when the row count
-   matches the mtg-checklist section total exactly.
+1. **Get the flat card list.** Build `CARD_LIST` from the selected subsets' cards in
+   `../sets/<CODE>.json` (step 0) — `(set_code, number, name, rarity)` per card, including
+   reprints/alternate-art printings under their own number — per that cache's README.md "Building
+   CARD_LIST from the shared sets/ cache". Done when the row count matches the selected subsets'
+   combined card count from step 0 exactly.
 
 2. **Gather ownership data** into a per-project `Own/` folder: a collection export CSV (e.g. from
    mythic.tools) and, optionally, plain-text decklists. See REFERENCE.md "Ownership file formats"
@@ -35,9 +38,9 @@ haven't built a checklist for yet, run `mtg-checklist` first (at least through i
    or apostrophe differences between the export and Scryfall's name before assuming you're really
    missing that many cards).
 
-4. **Generate the HTML.** Copy `template_needs.py` into the project, point it at the same
-   `SECTIONS`/`color_lookup.json` used for this set's `mtg-checklist` build and at the
-   `needs_result.json` from step 3. Keep every convention as-is unless asked to change it: single
+4. **Generate the HTML.** Copy `template_needs.py` into the project, point it at `SECTIONS` built
+   from the same selected subsets (step 0) and `color_lookup.json` derived the same way
+   `mtg-checklist` step 2 does, plus the `needs_result.json` from step 3. Keep every convention as-is unless asked to change it: single
    `Needs` column, `#` / `Card Name (Color)` / `R` columns, same header-repeat and pagination rules
    as `mtg-checklist` (unchanged engine — see that skill's REFERENCE.md for the pagination
    internals, not duplicated here). Done when the script runs with no exceptions and no card shows
