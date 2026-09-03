@@ -1,0 +1,3 @@
+# Personal collection data — shared ownership cache (see owned/README.md).
+# Keep the README tracked; ignore everything else under owned/.
+owned/*/

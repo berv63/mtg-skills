@@ -21,8 +21,9 @@ Git credentials/GitHub CLI auth is already configured locally (see the `skills` 
 ```
 skills/mtg-set-builder/      resolves ONE target set + which subSet groups to include
 skills/mtg-checklist/        renders the finish-checkbox (NF/TF/SF) checklist HTML
-skills/mtg-checklist-needs/  renders the Needs-count checklist HTML (vs. a collection export)
-sets/                        the shared cache both checklist skills read from
+skills/mtg-checklist-needs/  renders the Needs/Available checklist HTML (vs. a collection export)
+sets/                        the shared cache both checklist skills read from (what cards exist)
+owned/                       the shared cache mtg-checklist-needs reads from (what you own)
 ```
 
 **Always run `mtg-set-builder` first.** Whichever checklist skill the user asked for, its own
@@ -55,6 +56,15 @@ override table for a Scryfall grouping that needed splitting or renaming, and ex
 or refresh a set. Don't read this cache's raw JSON schema assumptions from memory — it's evolved
 across sessions (nested `subSet`/`cards` structure, no per-card `setCode`, `name` preferring
 Scryfall's `flavor_name`); check `sets/README.md` if anything about a field's meaning is unclear.
+
+## The `owned/` cache
+
+The opposite kind of data from `sets/`: one folder per set code (`owned/HOB/`, ...) holding the
+user's own collection export CSV(s), optional decklists, and a `rules.json` recording which of
+`mtg-checklist-needs`' six completion rules apply to that set — see `owned/README.md` and
+`skills/mtg-checklist-needs/REFERENCE.md` "The completion rules". Unlike `sets/`, this is personal,
+frequently-changing data — it's git-ignored (see `.gitignore`) and only `mtg-checklist-needs`
+reads it.
 
 ## Repo conventions worth knowing before editing anything here
 

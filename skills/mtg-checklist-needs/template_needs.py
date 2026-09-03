@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Reusable engine for the "Needs" variant of a compact, print-ready MTG checklist —
-same layout/pagination as mtg-checklist's template.py, but each row gets a single
-numeric Needs column (copies still required for a playset) instead of finish checkboxes.
+same layout/pagination as mtg-checklist's template.py, but each row gets a Needs column
+(copies still wanted) and an Available column (owned copies you'd trade away) instead of
+finish checkboxes.
 
 To use for a new set:
 
@@ -30,9 +31,16 @@ def color_group(set_code, number):
 
 with open("needs_result.json", encoding="utf-8") as _f:
     _NEEDS_DATA = json.load(_f)
-# Keyed by name (not number) — see REFERENCE.md "Matching by name, not number": every
-# printing of a card shares one Needs value.
-NEEDS_BY_NAME = {r["name"]: r["needs"] for r in _NEEDS_DATA["results"]}
+RULES_APPLIED = _NEEDS_DATA.get("rules", [])
+EXCLUDED_SUBSETS = _NEEDS_DATA.get("excluded_subsets", [])
+# Keyed by (set_code, primary collector number) — see REFERENCE.md "Matching by printing vs.
+# by name": only a base-set row ever pools ownership across other printings of its name: every
+# other row is matched to its own exact printing. "needs" is None for a row in a Rule #6
+# excluded subSet (not tracked, shown as "—").
+NEEDS_BY_KEY = {
+    (r["set_code"], r["primary_number"]): {"needs": r["needs"], "available": r["available"]}
+    for r in _NEEDS_DATA["results"]
+}
 
 # ---------------------------------------------------------------------------
 # Data model — replace everything below this line with the real set's data.
@@ -61,6 +69,14 @@ SET_COLORS = {"EX1": "#a8842f"}  # one accent color per set code, used on sectio
 # ---------------------------------------------------------------------------
 
 RARITY_CLASS = {"C": "r-c", "UC": "r-uc", "R": "r-r", "MR": "r-mr"}
+RULE_LABELS = {
+    "1": "#1 at least 1 of each card",
+    "2": "#2 at least 4 of each card",
+    "3": "#3 at least 2 of each R/MR",
+    "4": "#4 trade down to 2 of each R/MR",
+    "5": "#5 base-set Needs pools alt-art ownership",
+    "6": "#6 don't-care subsets excluded",
+}
 UNIT_BUDGET = 43  # rows + header-transitions per column; recalibrate against a real PDF render
 TRANSITION_COST = 3  # a color-header row's true cost, incl. the 9px margin-top before it
 KEEP_WITH_HEADER = 2  # a header must never be stranded with fewer than this many rows below it
@@ -87,12 +103,23 @@ def row_primary_number(mode, row):
     """The collector number to key the color lookup off of (NF number for NF_SF rows)."""
     return row[0]
 
-def row_html(mode, row):
+def row_html(set_code, mode, row):
     num, name, rarity = extract_num_name_rarity(mode, row)
-    needs = NEEDS_BY_NAME.get(name, "?")  # "?" flags a CARD_LIST row missing from compute_needs.py
-    needs_display = "" if needs == 0 else str(needs)
+    # str() guards against a SECTIONS row using an int literal for its number while
+    # needs_result.json's primary_number (from compute_needs.py's CARD_LIST) is always a string —
+    # a silent type mismatch here would make every row's lookup miss and show "?".
+    primary_number = str(row_primary_number(mode, row))
+    entry = NEEDS_BY_KEY.get((set_code, primary_number))
+    if entry is None:
+        # "?" flags a CARD_LIST row missing from compute_needs.py — a data bug, not a real result.
+        needs_display, avail_display = "?", "?"
+    else:
+        needs, available = entry["needs"], entry["available"]
+        needs_display = "—" if needs is None else ("" if needs == 0 else str(needs))
+        avail_display = "" if available == 0 else str(available)
     return f"""<div class="card-row">
   <span class="needs">{needs_display}</span>
+  <span class="avail">{avail_display}</span>
   <span class="num">{num}</span>
   <span class="name">{esc(name)}</span>
   <span class="rarity {RARITY_CLASS[rarity]}">{rarity}</span>
@@ -145,6 +172,10 @@ def chunk_into_blocks(rows, cols, set_code, mode, first_budget=None):
     return result
 
 def build():
+    rules_line = ", ".join(RULE_LABELS.get(r, "#" + r) for r in RULES_APPLIED) or \
+        "none (defaults: 4 C/UC, 1 R/MR)"
+    not_tracked_line = (" &middot; not tracked: " + esc(", ".join(EXCLUDED_SUBSETS))) if EXCLUDED_SUBSETS else ""
+
     parts = []
     parts.append(f"""<!doctype html>
 <html lang="en">
@@ -222,7 +253,8 @@ h1{{font-size:22px; margin:0 0 2px 0; letter-spacing:.3px;}}
   break-inside: avoid;
 }}
 .col-block:first-child .col-header{{padding-left:0;}}
-.col-header .needs-h{{flex:0 0 40px; text-align:center;}}
+.col-header .needs-h{{flex:0 0 34px; text-align:center;}}
+.col-header .avail-h{{flex:0 0 34px; text-align:center;}}
 .col-header .num-h{{flex:0 0 40px;}}
 .col-header .name-h{{
   flex:1; display:flex; align-items:center; gap:4px; min-width:0;
@@ -237,8 +269,12 @@ h1{{font-size:22px; margin:0 0 2px 0; letter-spacing:.3px;}}
 .col-block:first-child .card-row{{padding-left:0;}}
 .card-row:hover{{background:color-mix(in srgb, var(--accent) 6%, transparent);}}
 .needs{{
-  flex:0 0 40px; height:11px; border-bottom:1px solid var(--chk-border);
+  flex:0 0 34px; height:11px; border-bottom:1px solid var(--chk-border);
   text-align:center; font-size:10.5px; font-weight:700; color:var(--ink);
+}}
+.avail{{
+  flex:0 0 34px; height:11px; border-bottom:1px solid var(--chk-border);
+  text-align:center; font-size:10.5px; font-weight:700; color:var(--sub);
 }}
 .num{{flex:0 0 40px; font-variant-numeric:tabular-nums; color:var(--sub); font-size:10.5px;}}
 .name{{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}}
@@ -255,17 +291,17 @@ h1{{font-size:22px; margin:0 0 2px 0; letter-spacing:.3px;}}
 </head>
 <body>
 <h1>{esc(TITLE)}</h1>
-<p class="subtitle">Needs-count edition &middot; R = Rarity (C / UC / R / MR)</p>
+<p class="subtitle">Needs/Available edition &middot; R = Rarity (C / UC / R / MR)</p>
 <div class="legend">
   <span><b>C</b> = Common</span>
   <span><b>UC</b> = Uncommon</span>
   <span><b>R</b> = Rare</span>
   <span><b>MR</b> = Mythic Rare</span>
-  <span><b>Needs</b> = copies still needed for a playset (default 4 for C/UC, 1 for R/MR),
-  computed from your collection export (matched by card name across any printing); blank = you
-  already have enough, <b>?</b> = missing from compute_needs.py's card list (data bug, not a
-  real result)</span>
+  <span><b>Needs</b> = copies still wanted; blank = already met, <b>&mdash;</b> = not tracked (a
+  Rule #6 "don't care" subset), <b>?</b> = missing from compute_needs.py's card list (data bug)</span>
+  <span><b>Avail</b> = owned copies of this exact printing you'd trade away; blank = none spare</span>
   <span>Cards stay in numeric order; the column header updates to show the color of the cards below it, and repeats wherever the color changes</span>
+  <span>Completion rules applied: {esc(rules_line)}{not_tracked_line}</span>
 </div>
 """)
 
@@ -296,6 +332,7 @@ h1{{font-size:22px; margin:0 0 2px 0; letter-spacing:.3px;}}
         def col_header_html(group_name):
             return f'''<div class="col-header">
   <span class="needs-h">Needs</span>
+  <span class="avail-h">Avail</span>
   <span class="num-h">#</span>
   <span class="name-h">Card Name ({esc(group_name)})</span>
   <span class="rarity-h">R</span>
@@ -339,12 +376,12 @@ h1{{font-size:22px; margin:0 0 2px 0; letter-spacing:.3px;}}
                         parts.append('<div class="header-group">')
                         parts.append(col_header_html(group))
                         for kr in keep_rows:
-                            parts.append(row_html(mode, kr))
+                            parts.append(row_html(set_code, mode, kr))
                         parts.append("</div>")
                         i = j
                         last_group = group
                     else:
-                        parts.append(row_html(mode, row))
+                        parts.append(row_html(set_code, mode, row))
                         i += 1
                 parts.append("</div>")
             parts.append("</div>")
