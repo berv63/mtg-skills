@@ -84,8 +84,9 @@ If it's cached, derive `color_lookup.json` by walking both levels (`for group in
 in group["cards"]: ...`), keying `f"{CODE}:{card['number']}" -> card['color']` — zero network
 calls, and each card's `type`/`rarity`/`nonFoilAvailable`/`foilAvailable`/`surgeFoilAvailable`/
 `otherFoilAvailable` fields also cover most of what "Classifying finishes" below asks you to work
-out by hand. If a set code isn't cached yet, run `sets/build_set.py <CODE>` once (see its
-README.md), then proceed the same way — only fall back to the one-off live fetch below for a set
+out by hand. If a set code isn't cached yet, run `../mtg-set-builder/build_set.py <CODE>` once
+(see `mtg-set-builder`'s SKILL.md and `../../sets/README.md`), then proceed the same way — only
+fall back to the one-off live fetch below for a set
 you don't intend to keep.
 
 The cache's `subSet` grouping (see its README.md "The `subSet` grouping") does most of step 1's

@@ -61,10 +61,14 @@ Scryfall's `flavor_name`); check `sets/README.md` if anything about a field's me
 - Every skill folder is `SKILL.md` (required `name` + `description` frontmatter) plus a
   `REFERENCE.md` for the detailed rules/recipes the `SKILL.md` steps point at — keep that split;
   don't inline REFERENCE.md content back into SKILL.md or vice versa.
-- Every script here (`sets/build_set.py`, `skills/*/template*.py`, `skills/*/compute_needs.py`)
-  is stdlib-only Python by design, specifically so the Docker fallback documented in each
-  skill's REFERENCE.md (`docker run ... python:3-slim python <script>.py`) works with zero
-  `pip install` for the core path.
+- Every script here (`skills/mtg-set-builder/build_set.py`, `skills/*/template*.py`,
+  `skills/*/compute_needs.py`) is stdlib-only Python by design, specifically so the Docker
+  fallback documented in each skill's REFERENCE.md (`docker run ... python:3-slim python
+  <script>.py`) works with zero `pip install` for the core path. `sets/` itself holds only data
+  (JSON caches + its own README) — no scripts.
+- `build_set.py` resolves the repo's `sets/` folder relative to its own file location, not the
+  caller's working directory, so it can be run from anywhere in the repo (or via Docker mounting
+  the whole repo root) and still write to the right place.
 - This repo is a real git repo with a real remote (`origin` → this GitHub repo). Committing or
   pushing anything — including a new/refreshed `sets/<CODE>.json` — only happens when the user
   asks, per each skill's own explicit git-safety guidance; nothing here should ever auto-commit.

@@ -5,8 +5,9 @@ description: "Resolve a single target Magic: The Gathering set — from the shar
 
 Produces two things for whichever skill invoked it (or for its own sake): exactly one confirmed
 set code, and the confirmed list of `subSet` groups (from `../../sets/<CODE>.json`) to work with.
-Never resolves more than one set per run — a checklist covers one set at a time. `../../sets/`
-holds the actual cache and `build_set.py`; `../../sets/README.md` holds the schema, the scrape
+Never resolves more than one set per run — a checklist covers one set at a time. `build_set.py`
+in this same folder is the working engine (fetches Scryfall, writes into `../../sets/`) — `sets/`
+itself holds only data, no scripts. `../../sets/README.md` holds the schema, the scrape
 mechanics, `MANUAL_SUBSET_OVERRIDES`, and the full "Verifying a build" writeup — read it before
 step 2, don't duplicate it here.
 
@@ -19,9 +20,10 @@ step 2, don't duplicate it here.
 
 2. **Build the set if `../../sets/<CODE>.json` doesn't exist yet.** Tell the user this means a live
    Scryfall fetch (two requests: the card API, and a scrape of the set's Scryfall web page — see
-   `../../sets/README.md`) before running `../../sets/build_set.py <CODE>` (Docker fallback per that
-   README's "Running without Python installed" if Python isn't available locally). Skip this step
-   entirely for a code that's already cached.
+   `../../sets/README.md`) before running `build_set.py <CODE>` (same folder as this file; it
+   resolves `../../sets/` itself regardless of your working directory — Docker fallback per
+   `../../sets/README.md`'s "Running without Python installed" if Python isn't available locally).
+   Skip this step entirely for a code that's already cached.
 
 3. **Verify a new build with the user before trusting it.** Follow `../../sets/README.md`
    "Verifying a build" exactly: present every `subSet` group (name, first card, last card, count),

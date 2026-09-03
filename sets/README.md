@@ -203,10 +203,13 @@ just describing what's depicted).
 
 ## Building/refreshing a set's cache
 
+`build_set.py` lives in `../skills/mtg-set-builder/`, not in this folder — `sets/` holds only
+data. It resolves this folder relative to its own file location, so it can be run from anywhere
+(the repo root, this folder, wherever) and still write here:
+
 ```bash
-cd sets
-python build_set.py HOB HOC THOB      # any number of set codes in one run
-python build_set.py LTR --force       # re-fetch even though LTR.json already exists
+python ../skills/mtg-set-builder/build_set.py HOB HOC THOB      # any number of set codes in one run
+python ../skills/mtg-set-builder/build_set.py LTR --force       # re-fetch even though LTR.json already exists
 ```
 
 Without `--force`, a set code whose `<CODE>.json` already exists is skipped — that's the whole
@@ -263,16 +266,17 @@ never commit without being asked.
 
 ### Running without Python installed
 
-Same Docker fallback as both skills:
+Same Docker fallback as both skills — mount the whole repo root (not just `sets/`), since
+`build_set.py` needs to see its own `../../sets/` relative to itself:
 
 ```bash
-cd sets
-docker run --rm -v "$(pwd):/work" -w /work python:3-slim python build_set.py HOB
+cd /path/to/mtg-skills
+docker run --rm -v "$(pwd):/work" -w /work python:3-slim python skills/mtg-set-builder/build_set.py HOB
 ```
 
 ```powershell
-cd sets
-docker run --rm -v "${PWD}:/work" -w /work python:3-slim python build_set.py HOB
+cd C:\path\to\mtg-skills
+docker run --rm -v "${PWD}:/work" -w /work python:3-slim python skills/mtg-set-builder/build_set.py HOB
 ```
 
 (On Git Bash specifically, prefix with `MSYS_NO_PATHCONV=1` — Git Bash otherwise rewrites
@@ -295,8 +299,8 @@ for code in ["HOB", "HOC"]:
             color_lookup[f"{code}:{card['number']}"] = card["color"]
 ```
 
-Zero network calls, same data. If a set code is missing, run `build_set.py` for it once (see
-above), then proceed the same way. Only fall back to a one-off live `curl`/`urllib` query for a
+Zero network calls, same data. If a set code is missing, run `../mtg-set-builder/build_set.py`
+for it once (see above), then proceed the same way. Only fall back to a one-off live `curl`/`urllib` query for a
 set code you don't intend to keep (rare — most work here is on real released products worth
 caching permanently).
 

@@ -28,15 +28,26 @@ across both skills since the rendering/measuring step is identical.)
 
 ## Building CARD_LIST from the shared sets/ cache
 
-`compute_needs.py`'s `CARD_LIST` is `(set_code, number, name, rarity)` per row — every field of
-that tuple is already present in `../../sets/<CODE>.json` (see its README.md), one object per real
-print, in collector-number order. If the set(s) involved are already cached there (they should
-be, per `mtg-checklist`'s REFERENCE.md — build it via `sets/build_set.py` once if not), build
-`CARD_LIST` by loading those JSON files and filtering/mapping rather than hand-transcribing:
-`(row["setCode"], row["number"], row["name"], row["rarity"])`, keeping only the rows that
-actually belong in this product's checklist (same filtering judgment as `mtg-checklist`'s
-`EXCLUDE_PROMO`/section-bucketing step — the cache is unfiltered raw data, this product's
-`CARD_LIST` is the curated subset of it).
+`compute_needs.py`'s `CARD_LIST` is `(set_code, number, name, rarity)` per row. `../../sets/<CODE>.json`
+is an array of `{subSet, cards}` groups, not a flat card list — `set_code` comes from the filename
+(`<CODE>`), not a per-card field (see its README.md for the full schema). If the set(s) involved
+are already cached there (they should be, per `mtg-checklist`'s REFERENCE.md — build via
+`../mtg-set-builder/build_set.py` once if not), build `CARD_LIST` by walking both levels rather
+than hand-transcribing:
+
+```python
+CARD_LIST = [
+    (code, card["number"], card["name"], card["rarity"])
+    for code in ["HOB", "HOC"]
+    for group in json.load(open(f"../../sets/{code}.json", encoding="utf-8"))
+    for card in group["cards"]
+]
+```
+
+keeping only the groups/cards that actually belong in this product's checklist (same filtering
+judgment as `mtg-checklist`'s `EXCLUDE_PROMO`/section-bucketing step — the cache is unfiltered raw
+data, this product's `CARD_LIST` is the curated subset of it — in practice, filter by `subSet`
+first per the confirmed selection from `mtg-set-builder`, not by hand-picking individual cards).
 
 ## Ownership file formats
 

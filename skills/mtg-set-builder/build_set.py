@@ -1,19 +1,26 @@
 # -*- coding: utf-8 -*-
-"""Fetches every Scryfall print for one or more set codes and writes <CODE>.json in this
-folder — a permanent, offline cache (a set's cards never change after release, so this only
-ever needs to run once per set code). See README.md for the schema and how mtg-checklist /
-mtg-checklist-needs should consume it instead of re-fetching Scryfall each time.
+"""Fetches every Scryfall print for one or more set codes and writes <CODE>.json into the
+repo's top-level sets/ folder — a permanent, offline cache (a set's cards never change after
+release, so this only ever needs to run once per set code). See sets/README.md for the schema
+and how mtg-checklist/mtg-checklist-needs should consume it instead of re-fetching Scryfall
+each time.
+
+Lives here (skills/mtg-set-builder/), not in sets/ itself, since sets/ is pure data — this is
+the tool that builds it. Output always goes to ../../sets/ (resolved from this file's own
+location), so it can be run from anywhere, not just from inside sets/.
 
 Usage:
     python build_set.py HOB HOC THOB      # any number of set codes in one run
     python build_set.py LTR --force       # re-fetch and overwrite even if already cached
 """
 import json
-import os
 import re
 import sys
 import time
 import urllib.request
+from pathlib import Path
+
+SETS_DIR = Path(__file__).resolve().parent.parent.parent / "sets"
 
 RARITY_MAP = {"common": "C", "uncommon": "UC", "rare": "R", "mythic": "MR",
               "special": "S", "bonus": "B"}
@@ -198,8 +205,8 @@ def group_by_subset(set_code, cards, section_map):
 
 
 def build_set(set_code, force=False):
-    out_path = f"{set_code.upper()}.json"
-    if os.path.exists(out_path) and not force:
+    out_path = SETS_DIR / f"{set_code.upper()}.json"
+    if out_path.exists() and not force:
         print(f"{out_path} already exists, skipping (sets never change — pass --force to re-fetch)")
         return
     cards = fetch_all_prints(set_code)
