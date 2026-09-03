@@ -25,17 +25,19 @@ each checklist run happens to need it.)
 
 2. **If nothing's missing, say so and stop.** No download needed.
 
-3. **Otherwise, ask the user what to do with the missing codes.** Present the missing list, then
-   ask via AskUserQuestion with a small, fixed set of choices — the missing list itself can be
-   longer than AskUserQuestion supports as options, so don't try to turn each set code into its
-   own option:
-   - Download all of them
-   - Let the user name specific codes (a follow-up in plain conversation, not another
-     AskUserQuestion — free-form since the count is arbitrary)
-   - Skip for now
+3. **Let the user pick which missing codes to download via an actual multi-select list**, not a
+   yes/no/name-them-yourself question. AskUserQuestion caps each question at 4 options, so batch
+   the missing codes into groups of up to 4 and ask one `multiSelect: true` question per batch —
+   each set code is its own checkbox option (label the code itself; a short generic description
+   like "on GitHub, not yet in the local sets/ cache" is fine since this cache has no per-set
+   full-name data to draw a richer description from). This mirrors `mtg-set-builder` step 3's
+   "batch a few per question round" pattern for the same reason: one question round per up-to-4
+   codes, not one round per code and not one giant list. Union the checked options across every
+   batch into the final download list — an empty union (nothing checked in any batch) means skip
+   entirely, no download step needed.
 
-4. **Download what was chosen.** `python sync_sets.py --all` for "all of them", or
-   `python sync_sets.py CODE [CODE...]` for specific codes the user named. Report each line
+4. **Download what was chosen.** `python sync_sets.py CODE [CODE...]` for the codes selected
+   across all batches (or skip this step entirely if nothing was checked). Report each line
    `sync_sets.py` prints (set + subSet count + card count written, or "not found on GitHub" for
    a code that doesn't actually exist there — a typo, or a set genuinely not built by anyone
    yet). A `404` result is not an error to fix here; point the user at `mtg-set-builder` for that
