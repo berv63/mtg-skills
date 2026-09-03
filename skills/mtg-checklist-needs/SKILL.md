@@ -1,16 +1,26 @@
 ---
 name: mtg-checklist-needs
-description: "Build or update the \"Needs\" variant of a Magic: The Gathering set checklist — same layout as mtg-checklist but with a Needs column (copies still wanted) and an Available column (owned copies to trade away) per card, computed from a collection export against a set of user-chosen completion rules. Use when the user wants to know what they still need to complete a set/playset, what they have spare to trade, or wants to regenerate a needs list built with this skill."
+description: "Build or update the \"Needs\" variant of a Magic: The Gathering set checklist — a web-only (not print-oriented) page with a Needs column (copies still wanted) and an Available column (owned copies to trade away) per card, computed from a collection export against a set of user-chosen completion rules. Use when the user wants to know what they still need to complete a set/playset, what they have spare to trade, or wants to regenerate a needs list built with this skill."
 ---
 
-Builds the same compact, print-ready checklist layout as `mtg-checklist` — for **one set at a
-time**, one row per card number, rarity abbreviated, 2-3 columns per page — but replaces the two
-finish checkboxes with two numeric columns: **Needs** (copies still wanted) and **Available**
-(owned copies of that exact printing you'd trade away), computed by matching a collection export
-against the card list under a small set of completion rules the user picks per set. `compute_needs.py`
-computes the counts; `template_needs.py` renders the HTML — both are the working engines (copy
-them per project rather than rewriting). `REFERENCE.md` holds the completion-rules writeup, the
-ownership file formats, and the sanity checks; read it before step 1.
+Builds a compact **web-only** checklist page for **one set at a time** — no print pagination, no
+page breaks: each selected `subSet` is one section showing every one of its cards together, split
+into 3 columns as evenly as possible by row count. Each row carries two numeric columns instead of
+finish checkboxes: **Needs** (copies still wanted) and **Available** (owned copies of that exact
+printing you'd trade away), computed by matching a collection export against the card list under a
+small set of completion rules the user picks per set. `compute_needs.py` computes the counts;
+`template_needs.py` renders the HTML — both are the working engines (copy them per project rather
+than rewriting). `REFERENCE.md` holds the completion-rules writeup, the ownership file formats, and
+the sanity checks; read it before step 1.
+
+**Project folder location is not free-form for this skill.** Unlike `mtg-checklist`, the copies of
+`compute_needs.py`/`template_needs.py` you make below use relative paths at runtime (to
+`../../owned/<CODE>/` and `../../output/`) instead of any absolute, machine-specific path — this
+has to work on whatever machine the user is on, not just this one. That means the project folder
+**must** be created directly under the repo root, sister to `sets/`, `owned/`, `output/`, and
+`skills/` — e.g. `projects/<descriptive-name>/` — so `../../` from inside it always lands on the
+repo root, exactly like every other skill's `../../sets/...` references. Create that folder (no
+need to ask, it's just an empty directory) before step 4.
 
 0. **Resolve the target set and subset selection first.** Follow the `mtg-set-builder` skill's
    full procedure before doing anything below — it resolves exactly one set code (building and
@@ -42,32 +52,48 @@ ownership file formats, and the sanity checks; read it before step 1.
    for anything beyond the base-set rows. Done when every file the user wants counted is in
    `../../owned/<CODE>/` and matches the glob patterns `compute_needs.py` expects.
 
-4. **Compute the Needs/Available counts.** Copy `compute_needs.py` into the project, set
-   `OWNED_DIR` to the absolute path of `../../owned/<CODE>/`, replace the example `CARD_LIST` with
-   the real flat list from step 2. Run it — it writes `needs_result.json`. Done when the printed
+4. **Compute the Needs/Available counts.** Copy `compute_needs.py` into the project folder created
+   above — its `OWNED_DIR` already points at `../../owned/EX1` relatively; just change `EX1` to the
+   real set code — and replace the example `CARD_LIST` with the real flat list from step 2. Run it
+   — it writes `needs_result.json`. Done when the printed
    `csv_rows`/`deck_lines`/`unique_owned_*` counts look sane and `names_with_zero_owned` in the
    output doesn't include cards you know the user owns (that's usually a name-matching mismatch —
    see REFERENCE.md "Matching by printing vs. by name" — check for punctuation or apostrophe
    differences between the export and Scryfall's name before assuming they're really missing that
    many cards).
 
-5. **Generate the HTML.** Copy `template_needs.py` into the project, point it at `SECTIONS` built
-   from the same selected subsets (step 0, collector numbers as **strings** — matching the cache
-   and `CARD_LIST`, see REFERENCE.md's note on the int/string lookup trap) and `color_lookup.json`
-   derived the same way `mtg-checklist` step 2 does, plus the `needs_result.json` from step 4.
-   Keep every convention as-is unless asked to change it: two columns (`Needs` / `Avail`),
-   `#` / `Card Name (Color)` / `R` columns, same header-repeat and pagination rules as
-   `mtg-checklist` (unchanged engine — see that skill's REFERENCE.md for the pagination
-   internals, not duplicated here). Done when the script runs with no exceptions and no card shows
-   a `?` in either column (a `?` means `compute_needs.py`'s `CARD_LIST` is missing that exact row,
-   or a number-type mismatch between `SECTIONS` and `CARD_LIST` — fix before continuing). If
-   `python`/`python3` isn't available, see REFERENCE.md "Running without Python installed" for a
-   Docker fallback.
+5. **Resolve the output path.** Create `../../output/` (sister to `sets/`) if it doesn't exist yet
+   — no need to ask, this is just an empty folder. The default target is
+   `../../output/<CODE>_needs_avail.html`. If that file **doesn't** exist, use it as-is. If it
+   **does** exist, ask the user (AskUserQuestion) whether to overwrite it or create a new file —
+   if they pick "new", find the first unused `<CODE>_needs_avail_<N>.html` (`_1`, `_2`, ...) and use
+   that. Never silently overwrite and never silently pick a numbered name on your own — this is
+   always the user's call when the target already exists. See REFERENCE.md "The output/ folder"
+   for the exact resolution recipe.
 
-6. **Calibrate pagination and sanity-check exactly as in `mtg-checklist` steps 4-5** — same
-   engine, same `UNIT_BUDGET`/measuring recipe, same "no blank first page" and "no card range
-   silently disappears" checks. Confirm additionally: every row's Needs value is `0`/blank, a
-   positive integer, or `—` for a Rule #6 excluded row (never `?`), every row's Available is `0`
-   or a positive integer, and a couple of known owned/unowned/excluded cards show the values you
-   expect by hand-checking against the rules in REFERENCE.md. Write the file into the user's
-   project folder (redeploy to the same path on later edits) and open it in the browser.
+6. **Generate the HTML.** Copy `template_needs.py` into the project folder, point it at `SECTIONS`
+   built from the same selected subsets (step 0, collector numbers as **strings** — matching the
+   cache and `CARD_LIST`, see REFERENCE.md's note on the int/string lookup trap), `color_lookup.json`
+   derived the same way `mtg-checklist` step 2 does, and the `needs_result.json` from step 4. Its
+   `OUTPUT_PATH` already points at `../../output/EX1_needs_avail.html` relatively — set the filename
+   to exactly what step 5 resolved (real set code, `_1`/`_2`/... suffix if that's what the user
+   chose). Keep every convention as-is unless asked
+   to change it: two columns (`Needs` / `Avail`), `#` / `Card Name (Color)` / `R` columns, one
+   section per `subSet` with every one of its cards shown together (no splitting a section),
+   `COLS = 3` columns per section split as evenly as possible by row count (see REFERENCE.md
+   "Web-only layout — no pagination"), header repeats wherever the color changes within a column.
+   This template is **not** shared with `mtg-checklist`'s pagination engine — don't port
+   print-pagination logic back into it. Done when the script runs with no exceptions, writes to
+   exactly the path from step 5, and no card shows a `?` in either column (a `?` means
+   `compute_needs.py`'s `CARD_LIST` is missing that exact row, or a number-type mismatch between
+   `SECTIONS` and `CARD_LIST` — fix before continuing). If `python`/`python3` isn't available, see
+   REFERENCE.md "Running without Python installed" for a Docker fallback.
+
+7. **Sanity-check, then deliver.** No pagination/PDF calibration step — this is a plain scrolling
+   web page. Confirm: every section's row count reconstructs to the expected total, every row's
+   Needs value is `0`/blank, a positive integer, or `—` for a Rule #6 excluded row (never `?`),
+   every row's Available is `0` or a positive integer, and a couple of known owned/unowned/excluded
+   cards show the values you expect by hand-checking against the rules in REFERENCE.md. Open the
+   written `../../output/` file in the browser — check that a multi-column section actually reads
+   as one continuous section (no stray break) and that a small section's unused columns just render
+   empty, not broken.

@@ -1,27 +1,39 @@
 # -*- coding: utf-8 -*-
-"""Reusable engine for the "Needs" variant of a compact, print-ready MTG checklist —
-same layout/pagination as mtg-checklist's template.py, but each row gets a Needs column
-(copies still wanted) and an Available column (owned copies you'd trade away) instead of
-finish checkboxes.
+"""Reusable engine for the "Needs" variant of a compact MTG checklist — **web-only**, no print
+pagination. Each subSet is one section, laid out in 3 columns split as evenly as possible by row
+count, with every card in that subSet rendered together in that one section (no page breaks, no
+splitting a section across a "page"). Each row gets a Needs column (copies still wanted) and an
+Available column (owned copies you'd trade away) instead of finish checkboxes.
+
+**This script must live in a project folder created directly under the repo root** (sister to
+sets/, owned/, output/, skills/) — e.g. projects/<name>/ — so its relative OUTPUT_PATH resolves
+correctly. There is no absolute path anywhere in this file on purpose, since it needs to run
+correctly on whatever machine the user is on.
 
 To use for a new set:
 
-1. Replace TITLE, SET_COLORS, and the example SECTIONS below with the real set data —
-   reuse the exact same SECTIONS/color_lookup.json built for this set's mtg-checklist
-   run (see that skill's SKILL.md step 1 / REFERENCE.md "Classifying finishes"; the mode
-   values are identical here, the checkboxes just aren't rendered).
+1. Replace TITLE, SET_COLORS, and the example SECTIONS below with the real set data — reuse the
+   exact same SECTIONS/color_lookup.json built for this set's mtg-checklist run (see that skill's
+   SKILL.md step 1 / REFERENCE.md "Classifying finishes"; the mode values are identical here, the
+   checkboxes just aren't rendered).
 2. Run compute_needs.py first so needs_result.json exists.
-3. Run this script, then calibrate UNIT_BUDGET against a real PDF render exactly as for
-   mtg-checklist's template.py (see that skill's REFERENCE.md "Measuring real page fit").
-
-Do not restructure the pagination logic without re-reading mtg-checklist/REFERENCE.md's
-"header-gluing bug" and "full pagination model" notes — this file shares that engine
-verbatim; a fix made there needs to be ported here too (and vice versa).
+3. Set OUTPUT_PATH's filename to the exact name this run should write (see SKILL.md step 5 /
+   REFERENCE.md "The output/ folder" for how that name — including any overwrite-or-new decision —
+   gets resolved before this script runs).
+4. Run this script and open the written file in a browser. There is no pagination to calibrate —
+   this template targets a scrolling web page, not a printed page.
 """
 import html
 import json
+import os
 
 TITLE = "Example Set — MTG Finish-Level Checklist"
+
+# Relative to this project folder (see the module docstring for the required folder location) —
+# two levels up reaches the repo root, matching every other skill's "../../sets/..." convention.
+# The filename may already carry an overwrite-confirmed _1/_2/... suffix — this script never
+# decides that itself, it only writes whatever path SKILL.md step 5 resolved.
+OUTPUT_PATH = os.path.join("..", "..", "output", "EX1_needs_avail.html")
 
 with open("color_lookup.json", encoding="utf-8") as _f:
     COLOR_LOOKUP = json.load(_f)
@@ -48,13 +60,13 @@ NEEDS_BY_KEY = {
 # ---------------------------------------------------------------------------
 
 EXAMPLE_MAIN_SET = [
-    (1, "Example Common Creature", "C"),
-    (2, "Example Legend", "R"),
-    (3, "Example Mythic", "MR"),
+    ("1", "Example Common Creature", "C"),
+    ("2", "Example Legend", "R"),
+    ("3", "Example Mythic", "MR"),
 ]
 
-EXAMPLE_ALT_FRAME = [(nf, nf + 36, name, rarity) for nf, name, rarity in [
-    (100, "Example Alt-Frame Legend", "R"),
+EXAMPLE_ALT_FRAME = [(nf, str(int(nf) + 36), name, rarity) for nf, name, rarity in [
+    ("100", "Example Alt-Frame Legend", "R"),
 ]]
 
 SECTIONS = [
@@ -77,12 +89,7 @@ RULE_LABELS = {
     "5": "#5 base-set Needs pools alt-art ownership",
     "6": "#6 don't-care subsets excluded",
 }
-UNIT_BUDGET = 43  # rows + header-transitions per column; recalibrate against a real PDF render
-TRANSITION_COST = 3  # a color-header row's true cost, incl. the 9px margin-top before it
-KEEP_WITH_HEADER = 2  # a header must never be stranded with fewer than this many rows below it
-SECTION_HEAD_COST = 2  # approx unit-cost of a new section's title bar + border chrome
-MIN_USEFUL_LEFTOVER = 6  # below this many leftover units, just start the next section fresh
-MAX_CHAIN = 999  # effectively unbounded — see mtg-checklist/REFERENCE.md "full pagination model"
+COLS = 3  # every subSet section is split into this many columns, as evenly as possible
 
 def esc(s):
     return html.escape(str(s), quote=True)
@@ -125,51 +132,18 @@ def row_html(set_code, mode, row):
   <span class="rarity {RARITY_CLASS[rarity]}">{rarity}</span>
 </div>"""
 
-def compute_units(col, set_code, mode):
-    units = 0
-    last_group = None
-    for row in col:
-        grp = color_group(set_code, row_primary_number(mode, row))
-        units += 1 if grp == last_group else TRANSITION_COST
-        last_group = grp
-    return units
-
-def chunk_into_columns(rows, cols, set_code, mode, first_budget=None):
+def split_into_columns(rows, cols=COLS):
+    """As-even-as-possible split by row count — no page-fit budget, since a web page just
+    scrolls. Extra rows (when len(rows) isn't a multiple of cols) land in the earliest columns."""
+    n = len(rows)
+    base, extra = divmod(n, cols)
     columns = []
     i = 0
-    n = len(rows)
-    col_index = 0
-    while i < n:
-        budget = first_budget if (first_budget is not None and col_index < cols) else UNIT_BUDGET
-        last_group = None
-        units = 0
-        j = i
-        while j < n:
-            grp = color_group(set_code, row_primary_number(mode, rows[j]))
-            cost = 1 if grp == last_group else TRANSITION_COST
-            if units + cost > budget and j > i:
-                break
-            units += cost
-            last_group = grp
-            j += 1
-        columns.append(rows[i:j])
-        i = j
-        col_index += 1
+    for c in range(cols):
+        size = base + (1 if c < extra else 0)
+        columns.append(rows[i:i + size])
+        i += size
     return columns
-
-def chunk_into_blocks(rows, cols, set_code, mode, first_budget=None):
-    columns = chunk_into_columns(rows, cols, set_code, mode, first_budget)
-    result = []
-    for k in range(0, len(columns), cols):
-        block_cols = columns[k:k + cols]
-        if len(block_cols) < cols:
-            leftover_rows = [r for col in block_cols for r in col]
-            per_col = -(-len(leftover_rows) // cols)  # ceil
-            block_cols = [leftover_rows[i:i + per_col] for i in range(0, len(leftover_rows), per_col)]
-        while len(block_cols) < cols:
-            block_cols.append([])
-        result.append(block_cols)
-    return result
 
 def build():
     rules_line = ", ".join(RULE_LABELS.get(r, "#" + r) for r in RULES_APPLIED) or \
@@ -213,16 +187,11 @@ h1{{font-size:22px; margin:0 0 2px 0; letter-spacing:.3px;}}
 }}
 .legend b{{color:var(--ink);}}
 .section{{
-  break-inside: avoid-page; page-break-inside: avoid;
   margin-bottom:26px; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--paper);
-}}
-.section.force-break{{
-  break-before: page; page-break-before: always;
 }}
 .section-head{{
   display:flex; align-items:baseline; justify-content:space-between; gap:10px;
   padding:10px 16px; border-bottom:2px solid var(--set-color,var(--accent));
-  break-after: avoid; page-break-after: avoid;
 }}
 .section-head .set-tag{{
   font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--set-color,var(--accent));
@@ -230,27 +199,20 @@ h1{{font-size:22px; margin:0 0 2px 0; letter-spacing:.3px;}}
 }}
 .section-head h2{{font-size:14px; margin:0; display:inline;}}
 .section-count{{font-size:10px; color:var(--sub); white-space:nowrap;}}
-.block-grid{{
+.section-grid{{
   display:grid; grid-template-columns: repeat(var(--cols, 3), 1fr);
   column-gap:14px; padding:4px 16px 10px;
-}}
-.block-grid + .block-grid{{
-  break-before: page; page-break-before: always;
 }}
 .col-block{{
   min-width:0; border-left:1px solid var(--line);
 }}
 .col-block:first-child{{border-left:none;}}
-.header-group{{
-  break-inside: avoid; page-break-inside: avoid;
-}}
 .header-group:not(:first-child){{
   margin-top:9px;
 }}
 .col-block .col-header{{
   display:flex; align-items:center; gap:4px; padding:0 0 3px 10px; margin-bottom:2px; font-size:9px; font-weight:700;
   letter-spacing:.06em; text-transform:uppercase; color:var(--sub); border-bottom:1px solid var(--line);
-  break-inside: avoid;
 }}
 .col-block:first-child .col-header{{padding-left:0;}}
 .col-header .needs-h{{flex:0 0 34px; text-align:center;}}
@@ -263,7 +225,6 @@ h1{{font-size:22px; margin:0 0 2px 0; letter-spacing:.3px;}}
 .col-header .rarity-h{{flex:0 0 22px; text-align:right;}}
 .card-row{{
   display:flex; align-items:center; gap:4px; padding:2.5px 0 2.5px 10px;
-  break-inside: avoid; page-break-inside: avoid;
   border-bottom:1px solid color-mix(in srgb, var(--line) 60%, transparent);
 }}
 .col-block:first-child .card-row{{padding-left:0;}}
@@ -281,12 +242,6 @@ h1{{font-size:22px; margin:0 0 2px 0; letter-spacing:.3px;}}
 .rarity{{flex:0 0 22px; text-align:right; font-weight:700; font-size:10px;}}
 .r-c{{color:var(--c-common);}} .r-uc{{color:var(--c-uncommon);}} .r-r{{color:var(--c-rare);}} .r-mr{{color:var(--c-mythic);}}
 .footnote{{font-size:9.5px; color:var(--sub); padding:6px 16px 10px; font-style:italic;}}
-@media print{{
-  body{{padding:6px; font-size:10.5px; background:#fff; color:#000;}}
-  .section{{break-inside:auto; overflow:visible;}}
-  .legend{{display:none;}}
-}}
-@page{{ margin: 10mm; }}
 </style>
 </head>
 <body>
@@ -300,30 +255,17 @@ h1{{font-size:22px; margin:0 0 2px 0; letter-spacing:.3px;}}
   <span><b>Needs</b> = copies still wanted; blank = already met, <b>&mdash;</b> = not tracked (a
   Rule #6 "don't care" subset), <b>?</b> = missing from compute_needs.py's card list (data bug)</span>
   <span><b>Avail</b> = owned copies of this exact printing you'd trade away; blank = none spare</span>
-  <span>Cards stay in numeric order; the column header updates to show the color of the cards below it, and repeats wherever the color changes</span>
+  <span>Cards stay in numeric order; each subSet is one section split into {COLS} columns as
+  evenly as possible; the column header updates to show the color of the cards below it, and
+  repeats wherever the color changes</span>
   <span>Completion rules applied: {esc(rules_line)}{not_tracked_line}</span>
 </div>
 """)
 
-    page_remaining = None
-    chain_depth = 0
     for set_code, title, mode, rows in SECTIONS:
         color = SET_COLORS.get(set_code, "#a8842f")
-        cols = 3 if len(rows) > 20 else 2
 
-        first_budget = None
-        if page_remaining is not None and chain_depth < MAX_CHAIN:
-            candidate = page_remaining - SECTION_HEAD_COST
-            if candidate >= MIN_USEFUL_LEFTOVER:
-                trial = chunk_into_blocks(rows, cols, set_code, mode, candidate)
-                fresh = chunk_into_blocks(rows, cols, set_code, mode, None)
-                if len(trial) <= len(fresh):
-                    first_budget = candidate
-
-        force_break = page_remaining is not None and first_budget is None
-        section_class = "section force-break" if force_break else "section"
-
-        parts.append(f'<div class="{section_class}" style="--set-color:{color}">')
+        parts.append(f'<div class="section" style="--set-color:{color}">')
         parts.append(f'''<div class="section-head">
   <div><span class="set-tag">{esc(set_code)}</span><h2>{esc(title)}</h2></div>
   <span class="section-count">{len(rows)} cards</span>
@@ -338,53 +280,24 @@ h1{{font-size:22px; margin:0 0 2px 0; letter-spacing:.3px;}}
   <span class="rarity-h">R</span>
 </div>'''
 
-        blocks = chunk_into_blocks(rows, cols, set_code, mode, first_budget)
+        columns = split_into_columns(rows, COLS)
 
-        last_block_budget = UNIT_BUDGET if len(blocks) > 1 else (first_budget if first_budget is not None else UNIT_BUDGET)
-        last_block = blocks[-1]
-        used = max((compute_units(c, set_code, mode) for c in last_block if c), default=0)
-
-        if len(blocks) > 1:
-            chain_depth = 0
-        elif first_budget is not None:
-            chain_depth += 1
-        else:
-            chain_depth = 0
-        page_remaining = max(0, last_block_budget - used)
-
-        for col_chunks in blocks:
-            parts.append(f'<div class="block-grid" style="--cols:{cols}">')
-            for chunk in col_chunks:
-                parts.append('<div class="col-block">')
-                last_group = None
-                i = 0
-                n = len(chunk)
-                while i < n:
-                    row = chunk[i]
-                    num = row_primary_number(mode, row)
-                    group = color_group(set_code, num)
-                    if group != last_group:
-                        keep_rows = []
-                        j = i
-                        while j < n and len(keep_rows) < KEEP_WITH_HEADER:
-                            r = chunk[j]
-                            g = color_group(set_code, row_primary_number(mode, r))
-                            if g != group:
-                                break
-                            keep_rows.append(r)
-                            j += 1
-                        parts.append('<div class="header-group">')
-                        parts.append(col_header_html(group))
-                        for kr in keep_rows:
-                            parts.append(row_html(set_code, mode, kr))
-                        parts.append("</div>")
-                        i = j
-                        last_group = group
-                    else:
-                        parts.append(row_html(set_code, mode, row))
-                        i += 1
-                parts.append("</div>")
+        parts.append(f'<div class="section-grid" style="--cols:{COLS}">')
+        for col_rows in columns:
+            parts.append('<div class="col-block">')
+            last_group = None
+            for row in col_rows:
+                group = color_group(set_code, row_primary_number(mode, row))
+                if group != last_group:
+                    parts.append('<div class="header-group">')
+                    parts.append(col_header_html(group))
+                    parts.append(row_html(set_code, mode, row))
+                    parts.append("</div>")
+                    last_group = group
+                else:
+                    parts.append(row_html(set_code, mode, row))
             parts.append("</div>")
+        parts.append("</div>")
 
         if mode == "NF_TF_TBD":
             parts.append('<div class="footnote">*These cards are announced for future eternal-legal supporting products; exact finish has not yet been specified.</div>')
@@ -399,6 +312,7 @@ h1{{font-size:22px; margin:0 0 2px 0; letter-spacing:.3px;}}
 
 if __name__ == "__main__":
     out = build()
-    with open("needs_output.html", "w", encoding="utf-8") as f:
+    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
         f.write(out)
-    print("wrote needs_output.html, length", len(out))
+    print("wrote", OUTPUT_PATH, "length", len(out))

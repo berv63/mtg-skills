@@ -3,32 +3,82 @@
 ## Running without Python installed
 
 Both scripts only use the standard library (`csv`, `glob`, `json`, `os`, `re`, `html`) — no venv
-or pip install needed for the core workflow. If neither `python` nor `python3` resolves on the
-machine, run them in Docker instead, mounting the project folder (the one containing
-`compute_needs.py`, `template_needs.py`, `color_lookup.json`, `needs_result.json`) as the working
-directory:
+or pip install needed for the core workflow, and neither one has an absolute path anywhere in it —
+both `OWNED_DIR` (`compute_needs.py`) and `OUTPUT_PATH` (`template_needs.py`) are relative
+(`../../owned/<CODE>`, `../../output/<CODE>_needs_avail.html`), which only resolves correctly if
+the project folder lives directly under the repo root (see SKILL.md's project-folder note). If
+neither `python` nor `python3` resolves on the machine, run them in Docker instead — mount the
+**whole repo root**, not just the project folder, and set the working directory to the project
+folder's real path inside that mount, so the relative paths resolve identically to how they would
+on the host:
 
 ```bash
-docker run --rm -v "$(pwd):/work" -w /work python:3-slim python compute_needs.py
-docker run --rm -v "$(pwd):/work" -w /work python:3-slim python template_needs.py
+docker run --rm -v "$(pwd):/work" -w /work/projects/<name> python:3-slim python compute_needs.py
+docker run --rm -v "$(pwd):/work" -w /work/projects/<name> python:3-slim python template_needs.py
 ```
 
-On Windows PowerShell, use `${PWD}` instead of `$(pwd)`:
+(run from the repo root, so `$(pwd)` is the repo root itself). On Windows PowerShell, use `${PWD}`
+instead of `$(pwd)`:
 
 ```powershell
-docker run --rm -v "${PWD}:/work" -w /work python:3-slim python compute_needs.py
-docker run --rm -v "${PWD}:/work" -w /work python:3-slim python template_needs.py
+docker run --rm -v "${PWD}:/work" -w /work/projects/<name> python:3-slim python compute_needs.py
+docker run --rm -v "${PWD}:/work" -w /work/projects/<name> python:3-slim python template_needs.py
 ```
 
-`compute_needs.py` also needs to see `../../owned/<CODE>/` — either set `OWNED_DIR` to an absolute
-Windows path (Docker on Windows can read outside the mounted folder only if you mount the repo
-root instead of just the project folder — simplest fix: mount the whole repo root and set
-`OWNED_DIR = "/work/owned/<CODE>"` for that run) or copy the set's `owned/<CODE>/` folder next to
-the project temporarily. This pulls the official `python:3-slim` image on first run (needs
-internet access once), then executes fully offline. No custom Dockerfile is required for either
-step. (The optional pagination-calibration step still needs `pymupdf`/`pypdf` and a real browser —
-see `mtg-checklist`'s REFERENCE.md "Running without Python installed" for that recipe; it's shared
-across both skills since the rendering/measuring step is identical.)
+This pulls the official `python:3-slim` image on first run (needs internet access once), then
+executes fully offline. No custom Dockerfile is required for either step — there's no
+pagination-calibration step here at all (see "Web-only layout — no pagination" below), so nothing
+in this skill ever needs `pymupdf`/`pypdf`/a headless browser.
+
+## Web-only layout — no pagination
+
+This template targets a scrolling web page, not a printed page, and deliberately does **not**
+share `mtg-checklist`'s pagination engine (`UNIT_BUDGET`, `TRANSITION_COST`, `chunk_into_columns`/
+`chunk_into_blocks`, `page_remaining` chaining, `force-break` classes, `@media print`, `@page`) —
+none of that exists in `template_needs.py` any more. Each `subSet` is one `.section` containing
+**every** one of its cards, laid out via `split_into_columns(rows, COLS)` — a plain even split by
+row count (`divmod(len(rows), COLS)`, extra rows going to the earliest columns), no page-fit budget
+and no color-header-density accounting. A color group is free to span a column boundary; the
+column header at the top of every column always reflects whatever group its first row belongs to
+(even mid-group), and repeats again further down that column wherever the color changes — same
+visual convention as before, just without any print-break logic driving where columns split.
+
+If the user ever wants a print-oriented version of this same Needs/Available data back, that's a
+different template (closer to `mtg-checklist`'s engine, ported to carry two numeric columns instead
+of checkboxes) — don't try to bolt print pagination back onto this file piecemeal.
+
+## The output/ folder
+
+The rendered checklist is the one artifact this skill delivers to the user, so it goes in a shared,
+predictable place — `../../output/` relative to the project folder (sister to `sets/` and
+`owned/`, created on demand, no need to ask before creating the empty folder itself) — not the ad
+hoc "user's project folder" `mtg-checklist` still uses. The default filename is
+`<CODE>_needs_avail.html`. This only resolves correctly because the project folder lives directly
+under the repo root — see SKILL.md's project-folder note; if you ever find yourself needing an
+absolute path here, the project folder is in the wrong place, fix that instead.
+
+**Resolving the exact path (SKILL.md step 5), before `template_needs.py` ever runs — all relative
+to the project folder:**
+
+1. `os.makedirs(os.path.join("..", "..", "output"), exist_ok=True)`.
+2. If `../../output/<CODE>_needs_avail.html` doesn't exist, that's the target — done.
+3. If it does exist, ask the user via AskUserQuestion: overwrite the existing file, or create a new
+   one. Never decide this yourself and never overwrite silently — a previous run's file may still
+   be open in the user's browser or shared with someone else.
+4. If they choose "new," find the first free `<CODE>_needs_avail_<N>.html` starting at `_1` (glob
+   `../../output/<CODE>_needs_avail_*.html`, parse the trailing integer, use `max + 1` — don't just
+   try `_1` and stop if a `_2` already exists without `_1`, i.e. don't assume no gaps).
+
+Set `template_needs.py`'s `OUTPUT_PATH` constant to that resolved relative path (same
+`os.path.join("..", "..", "output", "<resolved filename>")` shape as the placeholder already
+there) before running it — the script itself never prompts (nothing in this skill is interactive
+Python; the overwrite decision belongs at the SKILL.md/agent level, not baked into the engine). The
+script creates `output/` itself too (`os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)`)
+as a safety net, but step 5 should already have done this.
+
+`needs_result.json`/`color_lookup.json` are intermediate artifacts and stay wherever
+`compute_needs.py`/`template_needs.py` are copied to (the project folder) — only the final rendered
+HTML moves to `output/`.
 
 ## The completion rules
 
@@ -162,10 +212,13 @@ for that specific copy. Compare the two strings/columns directly rather than gue
 
 ## Verifying the result
 
-Same spot-check approach as `mtg-checklist`'s REFERENCE.md "Verifying placement": `pypdf` extracts
-page text from a rendered PDF, so you can search for `f"{name}"` near a known Needs/Available digit
-to confirm a specific card landed where expected. Additionally, cross-check `needs_result.json`
-directly for a couple of cards the user knows the real owned-copy count for — including at least
-one Rule #5 alt-art-credit case (if Rule #5 is on) and one Rule #6 excluded-subSet case (if Rule #6
-is on) — before ever rendering the HTML; it's a much cheaper place to catch a matching or
-rules-logic bug than a full PDF re-render.
+No PDF/pypdf step — this is a plain HTML page, so open the file written to `../../output/` directly
+in a browser
+(or `grep`/`Grep` the raw HTML for `f"{name}"` if a quick headless check is enough) to confirm a
+specific card landed where expected and its Needs/Available values read correctly. Cross-check
+`needs_result.json` directly for a couple of cards the user knows the real owned-copy count for —
+including at least one Rule #5 alt-art-credit case (if Rule #5 is on) and one Rule #6
+excluded-subSet case (if Rule #6 is on) — before ever rendering the HTML; it's a much cheaper place
+to catch a matching or rules-logic bug than re-rendering. In the browser, also confirm each
+section reads as one continuous block (no visual break partway through) and that a section smaller
+than `COLS` cards just leaves its extra columns empty rather than looking broken.

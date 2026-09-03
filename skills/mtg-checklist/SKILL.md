@@ -4,8 +4,9 @@ description: "Build or update a printable Magic: The Gathering collection checkl
 ---
 
 Builds a compact, print-ready HTML checklist for **one set at a time**: one row per card number,
-two checkboxes (the card's two real finishes), rarity abbreviated, laid out in 2-3 columns per
-page with a header that repeats at every column top and at every color change. `template.py` in
+two checkboxes (the card's two real finishes), rarity abbreviated, laid out in 3 columns per
+page (even for a small section) with a header that repeats at every column top and at every
+color change. `template.py` in
 this folder is the working engine (CSS + row/column logic) validated on The Hobbit (HOB/HOC/THOB,
 418 rows) — copy it per project rather than rewriting it. `REFERENCE.md` holds the classification
 rules and exact commands; read it before step 1.

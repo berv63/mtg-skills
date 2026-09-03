@@ -218,22 +218,66 @@ def chunk_into_columns(rows, cols, set_code, mode, first_budget=None):
         col_index += 1
     return columns
 
+def split_evenly_by_units(rows, cols, set_code, mode):
+    """Split rows into `cols` contiguous, in-order columns, balancing total unit cost (rows +
+    color-header transitions) as evenly as possible -- NOT raw row count. A raw-count split
+    (e.g. ceil(n/cols) rows per column) can still leave one column visually much taller than
+    another when color-group density differs across the tail; recomputing the per-column
+    target against the *remaining* units/columns after each cut keeps real vertical height
+    even instead of just row count.
+    """
+    n = len(rows)
+    result = []
+    remaining_cols = cols
+    i = 0
+    while remaining_cols > 0 and i < n:
+        target = -(-compute_units(rows[i:], set_code, mode) // remaining_cols)  # ceil
+        last_group = None
+        units = 0
+        j = i
+        while j < n:
+            grp = color_group(set_code, row_primary_number(mode, rows[j]))
+            cost = 1 if grp == last_group else TRANSITION_COST
+            if units + cost > target and j > i:
+                break
+            units += cost
+            last_group = grp
+            j += 1
+        result.append(rows[i:j])
+        i = j
+        remaining_cols -= 1
+    while len(result) < cols:
+        result.append([])
+    return result
+
 def chunk_into_blocks(rows, cols, set_code, mode, first_budget=None):
     """Split rows into page-sized blocks of `cols` columns each (see chunk_into_columns).
 
     The final block of a section is usually shorter than a full page's worth. Greedily
     filling columns to their budget would pack the first 1-2 columns full and leave the
-    rest empty; instead spread that leftover evenly across all `cols` columns so it reads
-    as `cols` shorter columns (and the next section can start sooner on the same page).
+    rest empty; instead spread that leftover evenly (by unit cost, see split_evenly_by_units)
+    across all `cols` columns so it reads as `cols` shorter columns (and the next section can
+    start sooner on the same page).
+
+    A subtler case: the greedy fill can also produce a *full* `cols` columns for the final
+    block (so the `len(block_cols) < cols` check below never fires) where the last of those
+    columns is still short -- it stopped because rows ran out, not because it hit budget. Left
+    alone that reads as 2 full columns next to one short one instead of 3 even ones, so also
+    rebalance whenever this last block's total content doesn't actually need a full `cols`
+    columns' worth of budget.
     """
     columns = chunk_into_columns(rows, cols, set_code, mode, first_budget)
     result = []
     for k in range(0, len(columns), cols):
         block_cols = columns[k:k + cols]
-        if len(block_cols) < cols:
+        needs_rebalance = len(block_cols) < cols
+        if not needs_rebalance and (k + cols) >= len(columns):
+            budget = first_budget if (first_budget is not None and k == 0) else UNIT_BUDGET
+            tail_units = compute_units([r for col in block_cols for r in col], set_code, mode)
+            needs_rebalance = tail_units < cols * budget
+        if needs_rebalance:
             leftover_rows = [r for col in block_cols for r in col]
-            per_col = -(-len(leftover_rows) // cols)  # ceil
-            block_cols = [leftover_rows[i:i + per_col] for i in range(0, len(leftover_rows), per_col)]
+            block_cols = split_evenly_by_units(leftover_rows, cols, set_code, mode)
         while len(block_cols) < cols:
             block_cols.append([])
         result.append(block_cols)
@@ -368,7 +412,7 @@ h1{{font-size:22px; margin:0 0 2px 0; letter-spacing:.3px;}}
     for set_code, title, mode, rows in SECTIONS:
         nf_label, second_label = header_labels(mode)
         color = SET_COLORS.get(set_code, "#a8842f")
-        cols = 3 if len(rows) > 20 else 2
+        cols = 3  # always 3 columns per page, even for a small section
 
         first_budget = None
         if page_remaining is not None and chain_depth < MAX_CHAIN:

@@ -1,3 +1,12 @@
 # Personal collection data — shared ownership cache (see owned/README.md).
 # Keep the README tracked; ignore everything else under owned/.
 owned/*/
+
+# Rendered checklist output — fully regenerable (see output/README.md).
+# Keep the README tracked; ignore every rendered file directly under output/.
+output/*
+!output/README.md
+
+# mtg-checklist-needs' per-run working copies (see projects/README.md).
+# Keep the README tracked; ignore everything else under projects/.
+projects/*/

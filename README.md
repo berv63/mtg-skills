@@ -1,9 +1,10 @@
 # mtg-skills
 
-A small collection of [Agent Skills](https://agentskills.io) for building printable Magic: The
-Gathering collection checklists, plus a permanent, hand-verified cache of Scryfall set data they
-all read from. Written for an AI coding agent to follow — this file is the map; each skill's own
-`SKILL.md` is the authority on how to actually do its part.
+A small collection of [Agent Skills](https://agentskills.io) for building Magic: The Gathering
+collection checklists — a printable one (`mtg-checklist`) and a web-only Needs/Available one
+(`mtg-checklist-needs`) — plus permanent, hand-verified caches of Scryfall set data and personal
+ownership data they read from. Written for an AI coding agent to follow — this file is the map;
+each skill's own `SKILL.md` is the authority on how to actually do its part.
 
 ## Install
 
@@ -24,6 +25,8 @@ skills/mtg-checklist/        renders the finish-checkbox (NF/TF/SF) checklist HT
 skills/mtg-checklist-needs/  renders the Needs/Available checklist HTML (vs. a collection export)
 sets/                        the shared cache both checklist skills read from (what cards exist)
 owned/                       the shared cache mtg-checklist-needs reads from (what you own)
+output/                      where mtg-checklist-needs writes its rendered HTML
+projects/                    where mtg-checklist-needs' own working copies of its scripts live
 ```
 
 **Always run `mtg-set-builder` first.** Whichever checklist skill the user asked for, its own
@@ -65,6 +68,18 @@ user's own collection export CSV(s), optional decklists, and a `rules.json` reco
 `skills/mtg-checklist-needs/REFERENCE.md` "The completion rules". Unlike `sets/`, this is personal,
 frequently-changing data — it's git-ignored (see `.gitignore`) and only `mtg-checklist-needs`
 reads it.
+
+## `mtg-checklist-needs`' project folders must live under `projects/`
+
+Unlike `mtg-checklist` (whose rendered output goes to an arbitrary user-chosen "project folder"),
+`mtg-checklist-needs`' copies of `compute_needs.py`/`template_needs.py` use **relative** paths at
+runtime to reach `owned/` and `output/` (`../../owned/<CODE>`, `../../output/...`) — there's no
+absolute, machine-specific path anywhere in either script, since they need to run correctly on
+whatever machine the user is on. That only resolves correctly if the project folder is created
+directly under the repo root, e.g. `projects/<descriptive-name>/` — sister to `sets/`, `owned/`,
+`output/`, `skills/` — so `../../` from inside it always lands on the repo root, exactly like every
+other skill's `../../sets/...` references. This folder is git-ignored too (working copies of the
+per-project scripts + intermediate JSON, not something to version-control).
 
 ## Repo conventions worth knowing before editing anything here
 
