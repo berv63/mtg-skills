@@ -12,12 +12,12 @@ rules and exact commands; read it before step 1.
 
 0. **Resolve the target set and subset selection first.** Follow the `mtg-set-builder` skill's
    full procedure before doing anything below — it resolves exactly one set code (building and
-   verifying it in `../sets/` if it isn't cached yet), lets the user pick which `subSet` groups
+   verifying it in `../../sets/` if it isn't cached yet), lets the user pick which `subSet` groups
    to include, and gets an explicit go-ahead on a recap of both. Don't start step 1 until that
    recap is confirmed.
 
 1. **Build `SECTIONS` from the selected subSet groups.** The normal source now is
-   `../sets/<CODE>.json` (resolved in step 0): each confirmed `subSet` name becomes a section
+   `../../sets/<CODE>.json` (resolved in step 0): each confirmed `subSet` name becomes a section
    title, and its cards already carry `number`/`name`/`rarity`/`nonFoilAvailable`/
    `foilAvailable`/`surgeFoilAvailable`/`otherFoilAvailable`. Derive each row's `mode` (`NF_TF`,
    `NF_SF`, `NF_ONLY`, `TF_ONLY`, `SPECIAL:X`, ...) from those flags per REFERENCE.md "Deriving
@@ -30,7 +30,7 @@ rules and exact commands; read it before step 1.
 2. **Build `color_lookup.json` from the same cache.** Each cached card already has its `color`
    field (Land / Colorless / White / Blue / Black / Red / Green / Multicolor) — walk the selected
    subsets' cards and key `f"{CODE}:{number}" -> color`, no live fetch needed (see
-   `../sets/README.md` "Using this cache from a skill" for the exact snippet). Only do a live
+   `../../sets/README.md` "Using this cache from a skill" for the exact snippet). Only do a live
    Scryfall fetch (REFERENCE.md "Fetching color data" — WebFetch gets a 403 here, curl doesn't)
    for the PDF/site fallback path in step 1. Done when every card number from step 1 resolves in
    the lookup with zero misses (verify by checking, not assuming).

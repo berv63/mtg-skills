@@ -29,7 +29,7 @@ across both skills since the rendering/measuring step is identical.)
 ## Building CARD_LIST from the shared sets/ cache
 
 `compute_needs.py`'s `CARD_LIST` is `(set_code, number, name, rarity)` per row — every field of
-that tuple is already present in `../sets/<CODE>.json` (see its README.md), one object per real
+that tuple is already present in `../../sets/<CODE>.json` (see its README.md), one object per real
 print, in collector-number order. If the set(s) involved are already cached there (they should
 be, per `mtg-checklist`'s REFERENCE.md — build it via `sets/build_set.py` once if not), build
 `CARD_LIST` by loading those JSON files and filtering/mapping rather than hand-transcribing:

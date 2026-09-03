@@ -281,7 +281,7 @@ docker run --rm -v "${PWD}:/work" -w /work python:3-slim python build_set.py HOB
 ## Using this cache from a skill
 
 Before doing a live Scryfall fetch for a set (`mtg-checklist`'s REFERENCE.md "Fetching color
-data", or the equivalent step in `mtg-checklist-needs`), check whether `../sets/<CODE>.json`
+data", or the equivalent step in `mtg-checklist-needs`), check whether `../../sets/<CODE>.json`
 already exists for every set code the product involves. If it does, derive `color_lookup.json`
 straight from its groups' `color`/`number` fields — the set code comes from the filename, since
 it's not repeated inside the file:
@@ -290,7 +290,7 @@ it's not repeated inside the file:
 import json
 color_lookup = {}
 for code in ["HOB", "HOC"]:
-    for group in json.load(open(f"../sets/{code}.json", encoding="utf-8")):
+    for group in json.load(open(f"../../sets/{code}.json", encoding="utf-8")):
         for card in group["cards"]:
             color_lookup[f"{code}:{card['number']}"] = card["color"]
 ```

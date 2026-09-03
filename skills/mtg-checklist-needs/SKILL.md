@@ -14,12 +14,12 @@ renders the HTML — both are the working engines (copy them per project rather 
 
 0. **Resolve the target set and subset selection first.** Follow the `mtg-set-builder` skill's
    full procedure before doing anything below — it resolves exactly one set code (building and
-   verifying it in `../sets/` if it isn't cached yet), lets the user pick which `subSet` groups
+   verifying it in `../../sets/` if it isn't cached yet), lets the user pick which `subSet` groups
    to include, and gets an explicit go-ahead on a recap of both. Don't start step 1 until that
    recap is confirmed.
 
 1. **Get the flat card list.** Build `CARD_LIST` from the selected subsets' cards in
-   `../sets/<CODE>.json` (step 0) — `(set_code, number, name, rarity)` per card, including
+   `../../sets/<CODE>.json` (step 0) — `(set_code, number, name, rarity)` per card, including
    reprints/alternate-art printings under their own number — per that cache's README.md "Building
    CARD_LIST from the shared sets/ cache". Done when the row count matches the selected subsets'
    combined card count from step 0 exactly.

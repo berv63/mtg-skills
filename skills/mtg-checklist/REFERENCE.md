@@ -77,8 +77,8 @@ it isn't a clean integer, you've mis-split the section.
 ## Check the shared sets/ cache before fetching live
 
 A set's card list never changes after release, so before doing a live Scryfall fetch, check
-whether `../sets/<CODE>.json` already exists (sibling `sets/` folder at the repo root — see its
-README.md) for every set code this product involves. `<CODE>.json` is an array of `{subSet,
+whether `../../sets/<CODE>.json` already exists (the repo's top-level `sets/` folder, two levels
+up from this skill — see its README.md) for every set code this product involves. `<CODE>.json` is an array of `{subSet,
 cards}` groups, not a flat card list — the set code is only the filename, not a repeated field.
 If it's cached, derive `color_lookup.json` by walking both levels (`for group in data: for card
 in group["cards"]: ...`), keying `f"{CODE}:{card['number']}" -> card['color']` — zero network
@@ -104,7 +104,7 @@ trustworthy.
 
 ## Deriving mode from cached finish flags
 
-For a card row sourced from `../sets/<CODE>.json` (the normal path now that `mtg-set-builder`
+For a card row sourced from `../../sets/<CODE>.json` (the normal path now that `mtg-set-builder`
 resolves the set first), map its finish flags directly instead of re-classifying by hand:
 
 - `nonFoilAvailable and foilAvailable and not surgeFoilAvailable and not otherFoilAvailable` →
